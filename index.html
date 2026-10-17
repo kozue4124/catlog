@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ねこログ</title>
+<meta name="description" content="猫の1日の飲水量とおしっこの量を毎日記録するアプリ">
+<meta name="theme-color" content="#2a78d6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1a1a19" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ねこログ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="appbar">
+  <h1 class="appbar-title"><span class="appbar-icon" aria-hidden="true">🐾</span><span id="appTitle">ねこログ</span></h1>
+  <span class="appbar-sub" id="appSub"></span>
+</header>
+
+<main id="main">
+
+<!-- ===== 記録 ===== -->
+<section class="view" id="view-record" data-view="record">
+  <form id="recordForm" autocomplete="off" novalidate>
+    <div class="card">
+      <label class="field">
+        <span class="field-label">記録する日(計測を始めた日)</span>
+        <input type="date" id="f-date" required>
+      </label>
+      <p class="hint" id="dateHint"></p>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title"><span class="dot dot-water" aria-hidden="true"></span>お水</h2>
+      <div class="grid2">
+        <label class="field">
+          <span class="field-label">入れた量 <small>ml</small></span>
+          <input type="number" id="f-waterIn" inputmode="decimal" step="1" min="0" placeholder="例 300">
+        </label>
+        <label class="field">
+          <span class="field-label">24時間後に残った量 <small>ml</small></span>
+          <input type="number" id="f-waterLeft" inputmode="decimal" step="1" min="0" placeholder="例 180">
+        </label>
+      </div>
+      <div class="result" id="waterResult" aria-live="polite">
+        <span class="result-label">飲んだ量</span>
+        <span class="result-value"><b id="waterCalc">–</b> ml</span>
+      </div>
+      <p class="hint" id="evapHint" hidden></p>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title"><span class="dot dot-urine" aria-hidden="true"></span>おしっこ(システムトイレのシート)</h2>
+      <div class="grid2">
+        <label class="field">
+          <span class="field-label">24時間後のシートの重さ <small>g</small></span>
+          <input type="number" id="f-sheetWet" inputmode="decimal" step="0.1" min="0" placeholder="例 95">
+        </label>
+        <label class="field">
+          <span class="field-label">新品シートの重さ <small>g</small></span>
+          <input type="number" id="f-sheetDry" inputmode="decimal" step="0.1" min="0" placeholder="例 35">
+        </label>
+      </div>
+      <div class="result" id="urineResult" aria-live="polite">
+        <span class="result-label">おしっこの量</span>
+        <span class="result-value"><b id="urineCalc">–</b> g</span>
+      </div>
+      <p class="hint">おしっこは 1 g ≒ 1 ml として扱います。重さを量れない日は、下の「直接入力」に量だけ入れてもOKです。</p>
+      <details class="more">
+        <summary>直接入力(重さを量らなかったとき)</summary>
+        <label class="field">
+          <span class="field-label">おしっこの量 <small>ml</small></span>
+          <input type="number" id="f-urineDirect" inputmode="decimal" step="1" min="0" placeholder="例 60">
+        </label>
+      </details>
+    </div>
+
+    <div class="card">
+      <label class="field">
+        <span class="field-label">メモ(任意)</span>
+        <textarea id="f-note" rows="2" placeholder="食欲、様子、ウェットフードをあげた、など"></textarea>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn btn-primary" id="saveBtn">保存する</button>
+      <button type="button" class="btn btn-ghost" id="clearFormBtn">入力をクリア</button>
+    </div>
+    <p class="saved-toast" id="savedToast" role="status" aria-live="polite" hidden>保存しました</p>
+  </form>
+</section>
+
+<!-- ===== 履歴 ===== -->
+<section class="view" id="view-history" data-view="history" hidden>
+  <div class="card">
+    <h2 class="card-title">記録一覧</h2>
+    <p class="hint">タップすると編集できます。</p>
+  </div>
+  <ul class="history" id="historyList"></ul>
+  <p class="empty" id="historyEmpty" hidden>まだ記録がありません。「記録」タブから最初の1日を登録しましょう。</p>
+</section>
+
+<!-- ===== グラフ ===== -->
+<section class="view" id="view-chart" data-view="chart" hidden>
+  <div class="range-row" role="group" aria-label="表示期間">
+    <button type="button" class="chip" data-range="7">7日</button>
+    <button type="button" class="chip is-active" data-range="14">14日</button>
+    <button type="button" class="chip" data-range="30">30日</button>
+    <button type="button" class="chip" data-range="90">90日</button>
+  </div>
+
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="card viz-root">
+    <div class="chart-head">
+      <h2 class="card-title"><span class="dot dot-water" aria-hidden="true"></span>飲んだ量 <small>ml/日</small></h2>
+    </div>
+    <div class="chart-wrap"><svg id="waterChart" class="chart" role="img" aria-label="飲水量の推移"></svg></div>
+    <div class="chart-foot"><span class="legend-avg"><i></i>期間平均</span></div>
+  </div>
+
+  <div class="card viz-root">
+    <div class="chart-head">
+      <h2 class="card-title"><span class="dot dot-urine" aria-hidden="true"></span>おしっこの量 <small>ml/日</small></h2>
+    </div>
+    <div class="chart-wrap"><svg id="urineChart" class="chart" role="img" aria-label="尿量の推移"></svg></div>
+    <div class="chart-foot"><span class="legend-avg"><i></i>期間平均</span></div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>表で見る</summary>
+      <div class="table-wrap">
+        <table class="data-table" id="chartTable">
+          <thead><tr><th>日付</th><th>飲水 ml</th><th>尿 ml</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <div class="card note-card" id="refNote"></div>
+  <div class="tooltip" id="tooltip" hidden></div>
+</section>
+
+<!-- ===== 設定 ===== -->
+<section class="view" id="view-settings" data-view="settings" hidden>
+  <form id="settingsForm" autocomplete="off" novalidate>
+    <div class="card">
+      <h2 class="card-title">猫の情報</h2>
+      <label class="field">
+        <span class="field-label">名前</span>
+        <input type="text" id="s-catName" placeholder="例 たま">
+      </label>
+      <label class="field">
+        <span class="field-label">体重 <small>kg</small>(入れると 1kgあたりの量も表示します)</span>
+        <input type="number" id="s-catWeight" inputmode="decimal" step="0.1" min="0" placeholder="例 4.2">
+      </label>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">毎日の初期値</h2>
+      <label class="field">
+        <span class="field-label">給水器に入れる量 <small>ml</small></span>
+        <input type="number" id="s-defaultWater" inputmode="decimal" step="1" min="0" placeholder="例 300">
+      </label>
+      <label class="field">
+        <span class="field-label">新品ペットシートの重さ <small>g</small></span>
+        <input type="number" id="s-sheetDry" inputmode="decimal" step="0.1" min="0" placeholder="例 35">
+      </label>
+      <label class="field">
+        <span class="field-label">蒸発分の補正 <small>ml/日</small>(任意)</span>
+        <input type="number" id="s-evap" inputmode="decimal" step="1" min="0" placeholder="例 10">
+      </label>
+      <p class="hint">猫のいない状態で給水器に水を入れ、24時間後に減った量を測ると蒸発量の目安になります。入力すると「飲んだ量」からその分を引きます。</p>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn btn-primary">設定を保存</button>
+    </div>
+    <p class="saved-toast" id="settingsToast" role="status" aria-live="polite" hidden>設定を保存しました</p>
+  </form>
+
+  <div class="card">
+    <h2 class="card-title">データ</h2>
+    <p class="hint">データはこの端末のブラウザ内だけに保存されます。機種変更やブラウザのデータ削除に備えて、ときどきバックアップしてください。</p>
+    <div class="actions actions-col">
+      <button type="button" class="btn" id="exportCsvBtn">CSVで書き出す(Excel・スプレッドシート用)</button>
+      <button type="button" class="btn" id="exportJsonBtn">バックアップを保存(JSON)</button>
+      <label class="btn btn-file">バックアップを読み込む<input type="file" id="importFile" accept="application/json,.json" hidden></label>
+      <button type="button" class="btn btn-danger" id="wipeBtn">すべての記録を削除</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">使い方</h2>
+    <ol class="howto">
+      <li>毎日決まった時間に、給水器に決まった量の水を入れ、システムトイレのシートを新しいものに替えます。</li>
+      <li>24時間後、残った水の量と、取り出したシートの重さを量ります。</li>
+      <li>「記録」タブに数字を入れて保存。入れた量と新品シートの重さは設定から自動で入ります。</li>
+      <li>「グラフ」タブで変化を確認。いつもと違う傾向が続くときは獣医師に相談を。</li>
+    </ol>
+    <p class="hint">ホーム画面に追加すると、アプリのように使えます(iPhone: 共有 → ホーム画面に追加 / Android: メニュー → ホーム画面に追加)。</p>
+    <p class="hint version">バージョン <span id="appVersion"></span></p>
+  </div>
+</section>
+
+</main>
+
+<nav class="tabbar" aria-label="メイン">
+  <button type="button" class="tab is-active" data-tab="record"><span class="tab-icon" aria-hidden="true">✏️</span>記録</button>
+  <button type="button" class="tab" data-tab="history"><span class="tab-icon" aria-hidden="true">📋</span>履歴</button>
+  <button type="button" class="tab" data-tab="chart"><span class="tab-icon" aria-hidden="true">📈</span>グラフ</button>
+  <button type="button" class="tab" data-tab="settings"><span class="tab-icon" aria-hidden="true">⚙️</span>設定</button>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

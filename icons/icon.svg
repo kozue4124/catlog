@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#2a78d6"/>
+  <!-- water drop -->
+  <path d="M256 92c-56 84-120 150-120 222a120 120 0 0 0 240 0c0-72-64-138-120-222z" fill="#ffffff"/>
+  <!-- cat face inside drop -->
+  <g fill="#2a78d6">
+    <path d="M196 300l10-50 36 26h28l36-26 10 50c0 34-30 62-60 62s-60-28-60-62z"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="236" cy="316" r="7"/>
+    <circle cx="276" cy="316" r="7"/>
+    <path d="M248 332h16l-8 10z"/>
+  </g>
+</svg>
