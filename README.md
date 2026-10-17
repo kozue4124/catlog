@@ -28,8 +28,8 @@
 
 ## 公開のしかた(GitHub Pages)
 
-1. GitHub のリポジトリ **Settings → Pages → Build and deployment → Source** を **GitHub Actions** にする
-2. `main` ブランチに push すると `.github/workflows/pages.yml` が自動でデプロイします
+1. リポジトリを **Public(公開)** にする(無料プランではプライベートリポジトリで Pages は使えません)
+2. `main` ブランチに push すると `.github/workflows/pages.yml` が Pages を有効化して自動でデプロイします
 3. 公開 URL(`https://<ユーザー名>.github.io/catlog/`)をスマホで開き、ホーム画面に追加
 
 ビルド工程はありません。静的ファイルをそのまま配信するだけなので、Netlify や Cloudflare Pages など他のホスティングでも動きます。
