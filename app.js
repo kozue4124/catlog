@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.1.0';
+  const APP_VERSION = '1.1.1';
   const STORAGE_KEY = 'catlog.v1';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
   const POOP_LABEL = { morning: '朝', noon: '昼', night: '夜' };
@@ -505,6 +505,12 @@
   renderHeader();
   fillForm(todayKey());
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    // 新しいバージョンが有効になったら一度だけ再読み込みして、古いキャッシュと混ざらないようにする
+    let hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) location.reload();
+      hadController = true;
+    });
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
 })();
