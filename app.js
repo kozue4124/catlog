@@ -2,9 +2,11 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.0.0';
+  const APP_VERSION = '1.1.0';
   const STORAGE_KEY = 'catlog.v1';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+  const POOP_LABEL = { morning: '朝', noon: '昼', night: '夜' };
+  const POOP_ORDER = ['morning', 'noon', 'night'];
 
   // ---------- state ----------
   const defaultSettings = () => ({
@@ -54,6 +56,16 @@
     return Math.max(0, e.sheetWet - e.sheetDry);
   }
   const sortedKeys = () => Object.keys(state.entries).sort();
+  // poop: undefined/null = 未記録, [] = なし, ['morning','night'] = 出た時間帯
+  const poopText = (e) => {
+    if (!e || e.poop == null) return '';
+    if (e.poop.length === 0) return 'なし';
+    return POOP_ORDER.filter((k) => e.poop.includes(k)).map((k) => POOP_LABEL[k]).join('・');
+  };
+  const hasWaterData = (e) => e.waterIn != null && e.waterLeft != null;
+  const hasUrineData = (e) => (e.sheetWet != null && e.sheetDry != null) || e.urineDirect != null;
+  const hasAnyData = (e) => e.waterIn != null || e.waterLeft != null || e.sheetWet != null || e.sheetDry != null
+    || e.urineDirect != null || e.poop != null || (e.note && e.note.length > 0);
 
   // ---------- tabs ----------
   function showTab(name) {
@@ -73,9 +85,27 @@
     sheetWet: $('#f-sheetWet'), sheetDry: $('#f-sheetDry'), urineDirect: $('#f-urineDirect'), note: $('#f-note')
   };
 
+  let formPoop = null; // null | string[]
+  function setPoop(v) {
+    formPoop = v;
+    $$('#poopChips .chip-toggle').forEach((c) => {
+      const k = c.dataset.poop;
+      const on = v != null && (k === 'none' ? v.length === 0 : v.includes(k));
+      c.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  $$('#poopChips .chip-toggle').forEach((c) => c.addEventListener('click', () => {
+    const k = c.dataset.poop;
+    if (k === 'none') { setPoop(formPoop != null && formPoop.length === 0 ? null : []); return; }
+    let v = formPoop ? formPoop.filter((x) => x !== 'none') : [];
+    v = v.includes(k) ? v.filter((x) => x !== k) : [...v, k];
+    setPoop(v.length ? v : null);
+  }));
+
   function readForm() {
     return {
       date: F.date.value,
+      poop: formPoop ? formPoop.slice() : null,
       waterIn: num(F.waterIn.value), waterLeft: num(F.waterLeft.value),
       sheetWet: num(F.sheetWet.value), sheetDry: num(F.sheetDry.value),
       urineDirect: num(F.urineDirect.value),
@@ -94,6 +124,7 @@
       F.sheetDry.value = e.sheetDry ?? '';
       F.urineDirect.value = e.urineDirect ?? '';
       F.note.value = e.note || '';
+      setPoop(e.poop ?? null);
       if (e.urineDirect != null) $('.more').open = true;
     } else {
       F.waterIn.value = s.defaultWaterMl ?? '';
@@ -102,6 +133,7 @@
       F.sheetDry.value = s.sheetDryG ?? '';
       F.urineDirect.value = '';
       F.note.value = '';
+      setPoop(null);
     }
     updateCalc();
   }
@@ -121,7 +153,9 @@
     const k = e.date;
     const hint = $('#dateHint');
     if (!k) { hint.textContent = ''; return; }
-    if (state.entries[k]) hint.textContent = 'この日の記録を編集しています。';
+    const saved = state.entries[k];
+    $('#deleteEntryBtn').hidden = !saved;
+    if (saved) hint.textContent = saved.draft ? 'この日の下書きを編集しています。数値が揃ったら「保存する」で確定してください。' : 'この日の保存済みの記録を編集しています。';
     else if (k > todayKey()) hint.textContent = '未来の日付です。';
     else hint.textContent = `${longDate(k)} に水とシートをセットし、翌日の同じ時刻に計測した結果を入れてください。`;
   }
@@ -129,20 +163,40 @@
   Object.values(F).forEach((el) => { el.addEventListener('input', updateCalc); });
   F.date.addEventListener('change', () => fillForm(F.date.value));
 
+  function persistEntry(e, draft) {
+    state.entries[e.date] = { ...e, draft, updatedAt: new Date().toISOString() };
+    save();
+    toast('#savedToast', draft ? '下書きを保存しました' : '保存しました');
+    renderHeader();
+    updateCalc();
+  }
+
   $('#recordForm').addEventListener('submit', (ev) => {
     ev.preventDefault();
     const e = readForm();
     if (!e.date) { alert('日付を入れてください。'); F.date.focus(); return; }
-    const hasWater = e.waterIn != null && e.waterLeft != null;
-    const hasUrine = (e.sheetWet != null && e.sheetDry != null) || e.urineDirect != null;
-    if (!hasWater && !hasUrine) { alert('お水かおしっこ、どちらかの数値を入れてください。'); return; }
+    const hasWater = hasWaterData(e), hasUrine = hasUrineData(e);
+    if (!hasWater && !hasUrine) {
+      alert('お水かおしっこ、どちらかの数値を入れてください。\nまだ量っていないときは「下書き保存」を使ってください。');
+      return;
+    }
     if (hasWater && e.waterLeft > e.waterIn && !confirm('残った量が入れた量より多くなっています。このまま保存しますか?')) return;
     if (e.sheetWet != null && e.sheetDry != null && e.sheetWet < e.sheetDry && !confirm('使用後のシートが新品より軽くなっています。このまま保存しますか?')) return;
+    persistEntry(e, false);
+  });
 
-    state.entries[e.date] = { ...e, updatedAt: new Date().toISOString() };
-    save();
-    toast('#savedToast', '保存しました');
-    renderHeader();
+  $('#draftBtn').addEventListener('click', () => {
+    const e = readForm();
+    if (!e.date) { alert('日付を入れてください。'); F.date.focus(); return; }
+    if (!hasAnyData(e)) { alert('何か 1 つ以上入力してから下書き保存してください。'); return; }
+    persistEntry(e, true);
+  });
+
+  $('#deleteEntryBtn').addEventListener('click', () => {
+    const k = F.date.value;
+    if (!state.entries[k]) return;
+    if (!confirm(`${longDate(k)} の記録を削除しますか?`)) return;
+    delete state.entries[k]; save(); renderHeader(); fillForm(k);
   });
 
   $('#clearFormBtn').addEventListener('click', () => {
@@ -155,6 +209,7 @@
     F.sheetDry.value = s.sheetDryG ?? '';
     F.urineDirect.value = '';
     F.note.value = '';
+    setPoop(null);
     updateCalc();
   });
 
@@ -171,7 +226,8 @@
     const s = state.settings;
     $('#appTitle').textContent = s.catName ? `${s.catName}のログ` : 'ねこログ';
     const keys = sortedKeys();
-    $('#appSub').textContent = keys.length ? `${keys.length}日分の記録` : '';
+    const drafts = keys.filter((k) => state.entries[k].draft).length;
+    $('#appSub').textContent = keys.length ? `${keys.length}日分の記録${drafts ? `(下書き ${drafts})` : ''}` : '';
   }
 
   // ---------- history ----------
@@ -185,13 +241,16 @@
       const li = document.createElement('li');
       const d = fromKey(k);
       const w = waterDrank(e), u = urineAmount(e);
+      const pt = poopText(e);
       li.innerHTML = `
-        <div class="h-date">${shortDate(k)}<span class="h-dow">(${DOW[d.getDay()]}) ${d.getFullYear()}</span></div>
+        <div class="h-date">${shortDate(k)}<span class="h-dow">(${DOW[d.getDay()]}) ${d.getFullYear()}</span>${e.draft ? '<span class="badge badge-draft">下書き</span>' : ''}</div>
         <button type="button" class="h-del" aria-label="${longDate(k)} の記録を削除">×</button>
         <div class="h-vals">
-          <span class="h-water">${fmt(w)} ml</span>
-          <span class="h-urine">${fmt(u, 1)} ml</span>
+          <span class="h-water${w == null ? ' is-missing' : ''}">${w == null ? '未入力' : fmt(w) + ' ml'}</span>
+          <span class="h-urine${u == null ? ' is-missing' : ''}">${u == null ? '未入力' : fmt(u, 1) + ' ml'}</span>
         </div>
+        <div class="h-poop">${pt ? 'うんち ' + pt : '<span class="is-missing">うんち 未記録</span>'}</div>
+        <button type="button" class="h-edit" aria-label="${longDate(k)} の記録を編集">編集</button>
         ${e.note ? `<div class="h-note"></div>` : ''}`;
       if (e.note) li.querySelector('.h-note').textContent = e.note;
       li.addEventListener('click', (ev) => {
@@ -207,9 +266,9 @@
   }
 
   // ---------- chart ----------
-  $$('.chip').forEach((c) => c.addEventListener('click', () => {
+  $$('.range-row .chip').forEach((c) => c.addEventListener('click', () => {
     chartRange = Number(c.dataset.range);
-    $$('.chip').forEach((x) => x.classList.toggle('is-active', x === c));
+    $$('.range-row .chip').forEach((x) => x.classList.toggle('is-active', x === c));
     renderChart();
   }));
 
@@ -219,7 +278,7 @@
     const days = [];
     for (let k = start; k <= end; k = addDays(k, 1)) {
       const e = state.entries[k];
-      days.push({ key: k, water: e ? waterDrank(e) : null, urine: e ? urineAmount(e) : null });
+      days.push({ key: k, water: e ? waterDrank(e) : null, urine: e ? urineAmount(e) : null, poop: e ? (e.poop ?? null) : null });
     }
     return days;
   }
@@ -234,7 +293,15 @@
     const w7 = avg(last7.map((d) => d.water)), u7 = avg(last7.map((d) => d.urine));
 
     const perKg = (v) => (kg && v != null) ? `${fmt(v / kg, 1)} ml/kg/日` : '';
-    $('#kpiRow').innerHTML = `
+    const recorded = days.filter((d) => d.poop != null);
+    const poopDays = recorded.filter((d) => d.poop.length > 0).length;
+    const slotCount = (k) => recorded.filter((d) => d.poop.includes(k)).length;
+    const poopKpi = recorded.length
+      ? `<div class="kpi kpi-wide"><div class="kpi-label"><span class="dot dot-poop"></span>うんち(${chartRange}日間)</div>
+          <div class="kpi-value">${poopDays}<small>日 / 記録${recorded.length}日</small>
+          <small>朝 ${slotCount('morning')} ・ 昼 ${slotCount('noon')} ・ 夜 ${slotCount('night')} 回</small></div></div>`
+      : '';
+    $('#kpiRow').innerHTML = poopKpi + `
       <div class="kpi"><div class="kpi-label"><span class="dot dot-water"></span>飲水 直近7日平均</div>
         <div class="kpi-value">${fmt(w7)}<small>ml/日</small></div><div class="kpi-sub">${perKg(w7) || '&nbsp;'}</div></div>
       <div class="kpi"><div class="kpi-label"><span class="dot dot-urine"></span>尿 直近7日平均</div>
@@ -244,9 +311,9 @@
     drawBars($('#urineChart'), days.map((d) => ({ key: d.key, v: d.urine })), uAvg, 'var(--urine)', 'おしっこ');
 
     const tb = $('#chartTable tbody');
-    tb.innerHTML = days.slice().reverse().filter((d) => d.water != null || d.urine != null)
-      .map((d) => `<tr><td>${longDate(d.key)}</td><td>${fmt(d.water)}</td><td>${fmt(d.urine, 1)}</td></tr>`).join('')
-      || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">この期間の記録はありません</td></tr>';
+    tb.innerHTML = days.slice().reverse().filter((d) => d.water != null || d.urine != null || d.poop != null)
+      .map((d) => `<tr><td>${longDate(d.key)}</td><td>${fmt(d.water)}</td><td>${fmt(d.urine, 1)}</td><td>${poopText({ poop: d.poop }) || '–'}</td></tr>`).join('')
+      || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">この期間の記録はありません</td></tr>';
 
     const ref = $('#refNote');
     const kgNote = kg ? '' : '<p>設定で体重を入れると、体重1kgあたりの量も表示されます。</p>';
@@ -402,10 +469,10 @@
   const csvCell = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 
   $('#exportCsvBtn').addEventListener('click', () => {
-    const head = ['日付', '入れた水ml', '残った水ml', '飲んだ量ml', '使用後シートg', '新品シートg', '尿量(直接入力)ml', '尿量ml', 'メモ'];
+    const head = ['日付', '入れた水ml', '残った水ml', '飲んだ量ml', '使用後シートg', '新品シートg', '尿量(直接入力)ml', '尿量ml', 'うんち', '下書き', 'メモ'];
     const rows = sortedKeys().map((k) => {
       const e = state.entries[k];
-      return [k, e.waterIn, e.waterLeft, waterDrank(e), e.sheetWet, e.sheetDry, e.urineDirect, urineAmount(e), e.note].map(csvCell).join(',');
+      return [k, e.waterIn, e.waterLeft, waterDrank(e), e.sheetWet, e.sheetDry, e.urineDirect, urineAmount(e), poopText(e), e.draft ? '下書き' : '', e.note].map(csvCell).join(',');
     });
     download(`catlog-${todayKey()}.csv`, '﻿' + [head.join(','), ...rows].join('\r\n'), 'text/csv;charset=utf-8');
   });

@@ -80,6 +80,17 @@
     </div>
 
     <div class="card">
+      <h2 class="card-title"><span class="dot dot-poop" aria-hidden="true"></span>うんち(出た時間帯)</h2>
+      <div class="chip-row" id="poopChips" role="group" aria-label="うんちが出た時間帯">
+        <button type="button" class="chip chip-toggle" data-poop="morning" aria-pressed="false">🌅 朝</button>
+        <button type="button" class="chip chip-toggle" data-poop="noon" aria-pressed="false">☀️ 昼</button>
+        <button type="button" class="chip chip-toggle" data-poop="night" aria-pressed="false">🌙 夜</button>
+        <button type="button" class="chip chip-toggle" data-poop="none" aria-pressed="false">なし</button>
+      </div>
+      <p class="hint">出た時間帯をすべてタップしてください(複数可)。量の記録は不要です。</p>
+    </div>
+
+    <div class="card">
       <label class="field">
         <span class="field-label">メモ(任意)</span>
         <textarea id="f-note" rows="2" placeholder="食欲、様子、ウェットフードをあげた、など"></textarea>
@@ -87,10 +98,15 @@
     </div>
 
     <div class="actions">
+      <button type="button" class="btn" id="draftBtn">下書き保存</button>
       <button type="submit" class="btn btn-primary" id="saveBtn">保存する</button>
-      <button type="button" class="btn btn-ghost" id="clearFormBtn">入力をクリア</button>
     </div>
+    <p class="hint center">数値がまだ揃っていないときは「下書き保存」。あとで履歴から開いて続きを入力できます。</p>
     <p class="saved-toast" id="savedToast" role="status" aria-live="polite" hidden>保存しました</p>
+    <div class="actions actions-sub">
+      <button type="button" class="btn-link" id="clearFormBtn">入力をクリア</button>
+      <button type="button" class="btn-link btn-link-danger" id="deleteEntryBtn" hidden>この日の記録を削除</button>
+    </div>
   </form>
 </section>
 
@@ -98,7 +114,7 @@
 <section class="view" id="view-history" data-view="history" hidden>
   <div class="card">
     <h2 class="card-title">記録一覧</h2>
-    <p class="hint">タップすると編集できます。</p>
+    <p class="hint">「編集」をタップすると、その日の記録を開いて修正できます。下書きの続きもここから。</p>
   </div>
   <ul class="history" id="historyList"></ul>
   <p class="empty" id="historyEmpty" hidden>まだ記録がありません。「記録」タブから最初の1日を登録しましょう。</p>
@@ -136,7 +152,7 @@
       <summary>表で見る</summary>
       <div class="table-wrap">
         <table class="data-table" id="chartTable">
-          <thead><tr><th>日付</th><th>飲水 ml</th><th>尿 ml</th></tr></thead>
+          <thead><tr><th>日付</th><th>飲水 ml</th><th>尿 ml</th><th>うんち</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

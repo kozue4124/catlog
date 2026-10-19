@@ -1,5 +1,5 @@
 /* ねこログ service worker: offline app shell */
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0';
 const CACHE = `catlog-${VERSION}`;
 const ASSETS = [
   './',
