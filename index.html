@@ -13,9 +13,12 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=1.1.1">
+<link rel="stylesheet" href="styles.css?v=1.1.2">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.2C8.6 7.2 5.5 11 5.5 15a6.5 6.5 0 0 0 13 0c0-4-3.1-7.8-6.5-12.8z"/><path d="M9.2 15.3a2.9 2.9 0 0 0 2 2.7" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="1.4" stroke-linecap="round"/></symbol>
+</svg>
 <header class="appbar">
   <h1 class="appbar-title"><span class="appbar-icon" aria-hidden="true">🐾</span><span id="appTitle">ねこログ</span></h1>
   <span class="appbar-sub" id="appSub"></span>
@@ -35,7 +38,7 @@
     </div>
 
     <div class="card">
-      <h2 class="card-title"><span class="dot dot-water" aria-hidden="true"></span>お水</h2>
+      <h2 class="card-title"><svg class="ico ico-water" aria-hidden="true"><use href="#i-drop"/></svg>お水</h2>
       <div class="grid2">
         <label class="field">
           <span class="field-label">入れた量 <small>ml</small></span>
@@ -54,7 +57,7 @@
     </div>
 
     <div class="card">
-      <h2 class="card-title"><span class="dot dot-urine" aria-hidden="true"></span>おしっこ(システムトイレのシート)</h2>
+      <h2 class="card-title"><svg class="ico ico-urine" aria-hidden="true"><use href="#i-drop"/></svg>おしっこ(システムトイレのシート)</h2>
       <div class="grid2">
         <label class="field">
           <span class="field-label">24時間後のシートの重さ <small>g</small></span>
@@ -80,7 +83,7 @@
     </div>
 
     <div class="card">
-      <h2 class="card-title"><span class="dot dot-poop" aria-hidden="true"></span>うんち(出た時間帯)</h2>
+      <h2 class="card-title"><span class="ico ico-poop" aria-hidden="true">💩</span>うんち(出た時間帯)</h2>
       <div class="chip-row" id="poopChips" role="group" aria-label="うんちが出た時間帯">
         <button type="button" class="chip chip-toggle" data-poop="morning" aria-pressed="false">🌅 朝</button>
         <button type="button" class="chip chip-toggle" data-poop="noon" aria-pressed="false">☀️ 昼</button>
@@ -133,7 +136,7 @@
 
   <div class="card viz-root">
     <div class="chart-head">
-      <h2 class="card-title"><span class="dot dot-water" aria-hidden="true"></span>飲んだ量 <small>ml/日</small></h2>
+      <h2 class="card-title"><svg class="ico ico-water" aria-hidden="true"><use href="#i-drop"/></svg>飲んだ量 <small>ml/日</small></h2>
     </div>
     <div class="chart-wrap"><svg id="waterChart" class="chart" role="img" aria-label="飲水量の推移"></svg></div>
     <div class="chart-foot"><span class="legend-avg"><i></i>期間平均</span></div>
@@ -141,7 +144,7 @@
 
   <div class="card viz-root">
     <div class="chart-head">
-      <h2 class="card-title"><span class="dot dot-urine" aria-hidden="true"></span>おしっこの量 <small>ml/日</small></h2>
+      <h2 class="card-title"><svg class="ico ico-urine" aria-hidden="true"><use href="#i-drop"/></svg>おしっこの量 <small>ml/日</small></h2>
     </div>
     <div class="chart-wrap"><svg id="urineChart" class="chart" role="img" aria-label="尿量の推移"></svg></div>
     <div class="chart-foot"><span class="legend-avg"><i></i>期間平均</span></div>
@@ -234,6 +237,6 @@
   <button type="button" class="tab" data-tab="settings"><span class="tab-icon" aria-hidden="true">⚙️</span>設定</button>
 </nav>
 
-<script src="app.js?v=1.1.1"></script>
+<script src="app.js?v=1.1.2"></script>
 </body>
 </html>

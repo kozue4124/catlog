@@ -9,8 +9,8 @@
   --text-muted: #7b7a74;
   --accent: #2a78d6;
   --accent-ink: #ffffff;
-  --water: #2a78d6;
-  --urine: #eb6834;
+  --water: #2b9fdc;
+  --urine: #f0a30a;
   --poop: #8a6d3b;
   --poop-soft: #f5e9d3;
   --danger: #c0392b;
@@ -30,8 +30,8 @@
     --text-secondary: #c3c2b7;
     --text-muted: #8e8d85;
     --accent: #3987e5;
-    --water: #3987e5;
-    --urine: #d95926;
+    --water: #4db6ef;
+    --urine: #f2b233;
     --poop: #b08d5a;
     --poop-soft: #3d3221;
     --danger: #e66767;
@@ -43,7 +43,7 @@
 :root[data-theme="dark"] {
   --bg: #111110; --surface-1: #1a1a19; --surface-2: #242423; --border: #33332f;
   --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8e8d85;
-  --accent: #3987e5; --water: #3987e5; --urine: #d95926; --poop: #b08d5a; --poop-soft: #3d3221; --danger: #e66767;
+  --accent: #3987e5; --water: #4db6ef; --urine: #f2b233; --poop: #b08d5a; --poop-soft: #3d3221; --danger: #e66767;
   --grid: #2b2b29; --avg: #c3c2b7; --shadow: none;
 }
 
@@ -83,10 +83,10 @@ body {
 }
 .card-title { margin: 0 0 10px; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 .card-title small { font-weight: 400; color: var(--text-muted); font-size: 12px; }
-.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.dot-water { background: var(--water); }
-.dot-urine { background: var(--urine); }
-.dot-poop { background: var(--poop); }
+.ico { width: 18px; height: 18px; display: inline-block; vertical-align: -3px; flex: none; }
+.ico-water { fill: var(--water); }
+.ico-urine { fill: var(--urine); }
+.ico-poop { font-size: 16px; line-height: 18px; text-align: center; }
 
 .field { display: block; margin-bottom: 10px; }
 .field:last-child { margin-bottom: 0; }
@@ -173,11 +173,9 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 .history .h-date { font-weight: 700; font-size: 15px; }
 .history .h-dow { color: var(--text-muted); font-weight: 400; font-size: 13px; margin-left: 4px; }
 .history .h-vals { display: flex; gap: 14px; font-variant-numeric: tabular-nums; font-size: 15px; }
-.history .h-vals span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
-.history .h-water::before { background: var(--water); }
-.history .h-urine::before { background: var(--urine); }
-.history .h-poop { grid-column: 1; color: var(--text-secondary); font-size: 14px; }
-.history .h-poop::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--poop); }
+.history .h-vals > span { display: inline-flex; align-items: center; gap: 4px; }
+.history .h-vals .ico { width: 20px; height: 20px; }
+.history .h-poop { grid-column: 1; color: var(--text-secondary); font-size: 14px; display: inline-flex; align-items: center; gap: 4px; }
 .history .h-note { grid-column: 1 / -1; color: var(--text-secondary); font-size: 13px; white-space: pre-wrap; }
 .history .h-edit { grid-column: 2; grid-row: 2 / span 2; align-self: center; justify-self: end; font: inherit; font-size: 14px; font-weight: 600; color: var(--accent); background: var(--surface-2); border: none; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
 .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: 2px; background: var(--surface-2); color: var(--text-secondary); border: 1px solid var(--border); }
@@ -206,7 +204,8 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 .kpi {
   background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px;
 }
-.kpi-label { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+.kpi-label { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
+.kpi-label .ico { width: 16px; height: 16px; }
 .kpi-value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 2px; }
 .kpi-value small { font-size: 13px; font-weight: 400; color: var(--text-muted); margin-left: 2px; }
 .kpi-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
