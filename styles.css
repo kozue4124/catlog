@@ -86,7 +86,7 @@ body {
 .ico { width: 18px; height: 18px; display: inline-block; vertical-align: -3px; flex: none; }
 .ico-water { fill: var(--water); }
 .ico-urine { fill: var(--urine); }
-.ico-poop { font-size: 16px; line-height: 18px; text-align: center; }
+.ico-poop { fill: var(--poop); }
 
 .field { display: block; margin-bottom: 10px; }
 .field:last-child { margin-bottom: 0; }
@@ -173,9 +173,10 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 .history .h-date { font-weight: 700; font-size: 15px; }
 .history .h-dow { color: var(--text-muted); font-weight: 400; font-size: 13px; margin-left: 4px; }
 .history .h-vals { display: flex; gap: 14px; font-variant-numeric: tabular-nums; font-size: 15px; }
-.history .h-vals > span { display: inline-flex; align-items: center; gap: 4px; }
-.history .h-vals .ico { width: 20px; height: 20px; }
-.history .h-poop { grid-column: 1; color: var(--text-secondary); font-size: 14px; display: inline-flex; align-items: center; gap: 4px; }
+.history .h-vals > span { display: inline-flex; align-items: center; gap: 5px; line-height: 20px; }
+.history .h-vals .ico { width: 20px; height: 20px; vertical-align: 0; }
+.history .h-poop { grid-column: 1; color: var(--text-secondary); font-size: 14px; display: inline-flex; align-items: center; gap: 5px; line-height: 20px; }
+.history .h-poop .ico { width: 20px; height: 20px; vertical-align: 0; }
 .history .h-note { grid-column: 1 / -1; color: var(--text-secondary); font-size: 13px; white-space: pre-wrap; }
 .history .h-edit { grid-column: 2; grid-row: 2 / span 2; align-self: center; justify-self: end; font: inherit; font-size: 14px; font-weight: 600; color: var(--accent); background: var(--surface-2); border: none; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
 .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: 2px; background: var(--surface-2); color: var(--text-secondary); border: 1px solid var(--border); }

@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.1.2';
+  const APP_VERSION = '1.1.3';
   const STORAGE_KEY = 'catlog.v1';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
   const POOP_LABEL = { morning: '朝', noon: '昼', night: '夜' };
@@ -249,7 +249,7 @@
           <span class="h-water${w == null ? ' is-missing' : ''}"><svg class="ico ico-water" aria-hidden="true"><use href="#i-drop"/></svg>${w == null ? '未入力' : fmt(w) + ' ml'}</span>
           <span class="h-urine${u == null ? ' is-missing' : ''}"><svg class="ico ico-urine" aria-hidden="true"><use href="#i-drop"/></svg>${u == null ? '未入力' : fmt(u, 1) + ' ml'}</span>
         </div>
-        <div class="h-poop"><span class="ico ico-poop" aria-hidden="true">💩</span>${pt ? pt : '<span class="is-missing">未記録</span>'}</div>
+        <div class="h-poop"><svg class="ico ico-poop" aria-hidden="true"><use href="#i-poop"/></svg>${pt ? pt : '<span class="is-missing">未記録</span>'}</div>
         <button type="button" class="h-edit" aria-label="${longDate(k)} の記録を編集">編集</button>
         ${e.note ? `<div class="h-note"></div>` : ''}`;
       if (e.note) li.querySelector('.h-note').textContent = e.note;
@@ -297,7 +297,7 @@
     const poopDays = recorded.filter((d) => d.poop.length > 0).length;
     const slotCount = (k) => recorded.filter((d) => d.poop.includes(k)).length;
     const poopKpi = recorded.length
-      ? `<div class="kpi kpi-wide"><div class="kpi-label"><span class="ico ico-poop" aria-hidden="true">💩</span>うんち(${chartRange}日間)</div>
+      ? `<div class="kpi kpi-wide"><div class="kpi-label"><svg class="ico ico-poop" aria-hidden="true"><use href="#i-poop"/></svg>うんち(${chartRange}日間)</div>
           <div class="kpi-value">${poopDays}<small>日 / 記録${recorded.length}日</small>
           <small>朝 ${slotCount('morning')} ・ 昼 ${slotCount('noon')} ・ 夜 ${slotCount('night')} 回</small></div></div>`
       : '';
