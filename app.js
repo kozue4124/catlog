@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.1.4';
+  const APP_VERSION = '1.1.5';
   const STORAGE_KEY = 'catlog.v1';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
   const POOP_LABEL = { morning: '朝', noon: '昼', night: '夜' };
@@ -157,7 +157,7 @@
     $('#deleteEntryBtn').hidden = !saved;
     if (saved) hint.textContent = saved.draft ? 'この日の下書きを編集しています。数値が揃ったら「保存する」で確定してください。' : 'この日の保存済みの記録を編集しています。';
     else if (k > todayKey()) hint.textContent = '未来の日付です。';
-    else hint.textContent = `${longDate(k)} に水とシートをセットし、翌日の同じ時刻に計測した結果を入れてください。`;
+    else hint.textContent = k === todayKey() ? '今日量った分(昨日のこの時間からの24時間)を記録します。' : `${longDate(k)} に量った分を記録します。`;
   }
 
   Object.values(F).forEach((el) => { el.addEventListener('input', updateCalc); });

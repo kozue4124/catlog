@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=1.1.4">
+<link rel="stylesheet" href="styles.css?v=1.1.5">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -37,7 +37,7 @@
   <form id="recordForm" autocomplete="off" novalidate>
     <div class="card">
       <label class="field">
-        <span class="field-label">記録する日(計測を始めた日)</span>
+        <span class="field-label">日付(量った日)</span>
         <input type="date" id="f-date" required>
       </label>
       <p class="hint" id="dateHint"></p>
@@ -225,9 +225,9 @@
   <div class="card">
     <h2 class="card-title">使い方</h2>
     <ol class="howto">
-      <li>毎日決まった時間に、給水器に決まった量の水を入れ、システムトイレのシートを新しいものに替えます。</li>
-      <li>24時間後、残った水の量と、取り出したシートの重さを量ります。</li>
-      <li>「記録」タブに数字を入れて保存。入れた量と新品シートの重さは設定から自動で入ります。</li>
+      <li>毎日決まった時間に、残った水の量と、取り出したシートの重さを量ります。</li>
+      <li>量ったら、給水器に決まった量の水を入れ直し、シートを新品に替えます。</li>
+      <li>「記録」タブで、量った日の日付(そのままなら今日)に数字を入れて保存。入れた量と新品シートの重さは設定から自動で入ります。</li>
       <li>「グラフ」タブで変化を確認。いつもと違う傾向が続くときは獣医師に相談を。</li>
     </ol>
     <p class="hint">ホーム画面に追加すると、アプリのように使えます(iPhone: 共有 → ホーム画面に追加 / Android: メニュー → ホーム画面に追加)。</p>
@@ -244,6 +244,6 @@
   <button type="button" class="tab" data-tab="settings"><span class="tab-icon" aria-hidden="true">⚙️</span>設定</button>
 </nav>
 
-<script src="app.js?v=1.1.4"></script>
+<script src="app.js?v=1.1.5"></script>
 </body>
 </html>
