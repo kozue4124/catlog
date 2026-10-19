@@ -245,7 +245,8 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 
 .howto { padding-left: 20px; margin: 0; color: var(--text-secondary); font-size: 14px; }
 .howto li { margin-bottom: 6px; }
-.version { font-size: 12px; }
+.version { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.version .btn-link { font-size: 12px; padding: 4px 8px; }
 
 /* tab bar */
 .tabbar {

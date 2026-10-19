@@ -1,11 +1,11 @@
 /* ねこログ service worker: offline app shell */
-const VERSION = 'v1.1.3';
+const VERSION = 'v1.1.4';
 const CACHE = `catlog-${VERSION}`;
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=1.1.3',
-  './app.js?v=1.1.3',
+  './styles.css?v=1.1.4',
+  './app.js?v=1.1.4',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -13,6 +13,10 @@ const ASSETS = [
   './icons/icon-512-maskable.png',
   './icons/apple-touch-icon.png'
 ];
+
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

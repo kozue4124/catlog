@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.1.3';
+  const APP_VERSION = '1.1.4';
   const STORAGE_KEY = 'catlog.v1';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
   const POOP_LABEL = { morning: '朝', noon: '昼', night: '夜' };
@@ -502,6 +502,24 @@
 
   // ---------- init ----------
   $('#appVersion').textContent = APP_VERSION;
+  $('#updateBtn').addEventListener('click', async () => {
+    const btn = $('#updateBtn');
+    btn.disabled = true; btn.textContent = '確認中…';
+    try {
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+      if (reg) {
+        await reg.update();
+        if (reg.waiting) { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); }
+        // 新しい版が見つかれば controllerchange で自動的に再読み込みされる
+        await new Promise((r) => setTimeout(r, 2500));
+        if (reg.installing || reg.waiting) { location.reload(); return; }
+      }
+      location.reload();
+    } catch (e) {
+      alert('更新の確認に失敗しました。通信状態を確認してもう一度お試しください。');
+      btn.disabled = false; btn.textContent = '更新を確認';
+    }
+  });
   renderHeader();
   fillForm(todayKey());
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
