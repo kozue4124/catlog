@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.2.0';
+  const APP_VERSION = '1.2.1';
   const STORAGE_KEY = 'catlog.v1';
   const APIKEY_KEY = 'catlog.apikey';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
@@ -579,7 +579,7 @@
   }
 
   // ---- フォーム状態 ----
-  const VF = { date: $('#v-date'), total: $('#v-total'), clinic: $('#v-clinic'), note: $('#v-note') };
+  const VF = { date: $('#v-date'), total: $('#v-total'), clinic: $('#v-clinic'), note: $('#v-note'), raw: $('#v-raw') };
   let editingVisitId = null;
   let pendingPhoto = null;        // { blob, id } 保存前の写真
   let pendingPhotoRemoved = false;
@@ -625,6 +625,8 @@
     VF.total.value = visit && visit.total != null ? visit.total : '';
     VF.clinic.value = visit ? (visit.clinic || '') : (lastClinic() || '');
     VF.note.value = visit ? (visit.note || '') : '';
+    VF.raw.value = visit ? (visit.rawText || '') : '';
+    $('#parseHint').textContent = '';
     setItems(visit ? visit.items : []);
     $('#visitDeleteBtn').hidden = !visit;
     setPreview(visit && visit.photoId ? await photoGet(visit.photoId) : null);
@@ -672,6 +674,7 @@
       total: num(VF.total.value),
       items: readItems(),
       note: VF.note.value.trim(),
+      rawText: VF.raw.value.trim(),
       photoId: existing ? existing.photoId : null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -742,6 +745,32 @@
   function closeLightbox() { $('#lightbox').hidden = true; $('#lightboxImg').removeAttribute('src'); }
   $('#lightbox').addEventListener('click', closeLightbox);
   $('#lightboxClose').addEventListener('click', closeLightbox);
+
+  // ---- 文字からの読み取り(無料・端末内) ----
+  function applyParsed(r, overwrite) {
+    const hint = $('#parseHint');
+    let filled = [];
+    if (r.date && (overwrite || !VF.date.value || VF.date.value === todayKey())) { VF.date.value = r.date; filled.push('日付'); }
+    if (r.total != null && (overwrite || VF.total.value === '')) { VF.total.value = Math.round(r.total); filled.push('合計金額'); }
+    if (r.clinic && (overwrite || VF.clinic.value === '' || VF.clinic.value === lastClinic())) { VF.clinic.value = r.clinic; filled.push('病院名'); }
+    const curItems = readItems();
+    if (r.items && r.items.length && (overwrite || curItems.length === 0)) { setItems(r.items); filled.push(`診療内容 ${r.items.length} 件`); }
+    if (filled.length) hint.textContent = `${filled.join('・')} を入れました。内容を確認して、違っていれば直してから保存してください。`;
+    else hint.textContent = '文字から日付や金額を見つけられませんでした。手で入力してください。';
+    return filled.length;
+  }
+  function parseRaw(overwrite) {
+    const text = VF.raw.value.trim();
+    if (!text) { $('#parseHint').textContent = '明細の文字を入れてください。'; return; }
+    if (typeof window.parseReceiptText !== 'function') { $('#parseHint').textContent = '読み取り機能を読み込めませんでした。アプリを開き直してください。'; return; }
+    applyParsed(window.parseReceiptText(text), overwrite);
+  }
+  $('#parseTextBtn').addEventListener('click', () => parseRaw(true));
+  let rawTimer = null;
+  VF.raw.addEventListener('input', () => {
+    clearTimeout(rawTimer);
+    rawTimer = setTimeout(() => { if (VF.raw.value.trim().length >= 10) parseRaw(false); }, 700);
+  });
 
   // ---- AI 読み取り(Claude API) ----
   const RECEIPT_SCHEMA = {
