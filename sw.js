@@ -1,11 +1,11 @@
 /* ねこログ service worker: offline app shell */
-const VERSION = 'v1.3.0';
+const VERSION = 'v1.4.0';
 const CACHE = `catlog-${VERSION}`;
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=1.3.0',
-  './app.js?v=1.3.0',
+  './styles.css?v=1.4.0',
+  './app.js?v=1.4.0',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',

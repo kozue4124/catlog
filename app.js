@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.3.0';
+  const APP_VERSION = '1.4.0';
   const STORAGE_KEY = 'catlog.v1';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
   const POOP_LABEL = { morning: '朝', noon: '昼', night: '夜' };
@@ -10,7 +10,7 @@
 
   // ---------- state ----------
   const defaultSettings = () => ({
-    catName: '', catWeightKg: null, defaultWaterMl: null, sheetDryG: null, evapMl: null
+    catName: '', catWeightKg: null, defaultWaterMl: null, sheetDryG: null, evapMl: null, clinicName: ''
   });
   let state = load();
   let chartRange = 14;
@@ -325,9 +325,13 @@
       ${kgNote}`;
   }
 
-  function drawBars(svg, data, average, color, name) {
+  function drawBars(svg, data, average, color, name, opts = {}) {
+    const xLabel = opts.xLabel || shortDate;
+    const tip = opts.tip || ((k, v) => `${longDate(k)}<br>${name} <b>${v == null ? '記録なし' : fmt(v, 1) + ' ml'}</b>`);
+    const avgLabel = opts.avgLabel || ((v) => `平均 ${fmt(v)}`);
+    const yFmt = opts.yFmt || ((v) => fmt(v));
     const W = svg.clientWidth || 320, H = 200;
-    const m = { top: 14, right: 8, bottom: 22, left: 36 };
+    const m = { top: 14, right: 8, bottom: 22, left: opts.yFmt ? 44 : 36 };
     const iw = W - m.left - m.right, ih = H - m.top - m.bottom;
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.innerHTML = '';
@@ -358,15 +362,15 @@
     const axis = el('g', { class: 'axis' });
     for (let v = 0; v <= top + 1e-9; v += step) {
       grid.appendChild(el('line', { x1: m.left, x2: W - m.right, y1: y(v), y2: y(v) }));
-      axis.appendChild(el('text', { x: m.left - 6, y: y(v) + 4, 'text-anchor': 'end' }, fmt(v)));
+      axis.appendChild(el('text', { x: m.left - 6, y: y(v) + 4, 'text-anchor': 'end' }, yFmt(v)));
     }
     svg.appendChild(grid); svg.appendChild(axis);
 
     // x labels (sparse)
-    const every = n <= 7 ? 1 : n <= 14 ? 2 : n <= 30 ? 5 : 15;
+    const every = opts.every || (n <= 7 ? 1 : n <= 14 ? 2 : n <= 30 ? 5 : 15);
     data.forEach((d, i) => {
       if ((n - 1 - i) % every === 0) {
-        axis.appendChild(el('text', { x: m.left + slot * i + slot / 2, y: H - 6, 'text-anchor': 'middle' }, shortDate(d.key)));
+        axis.appendChild(el('text', { x: m.left + slot * i + slot / 2, y: H - 6, 'text-anchor': 'middle' }, xLabel(d.key)));
       }
     });
 
@@ -386,7 +390,7 @@
       const hit = el('rect', { x: m.left + slot * i, y: m.top, width: slot, height: ih, class: 'hit' });
       const show = (ev) => {
         bars.querySelectorAll('.bar').forEach((b) => b.classList.toggle('is-dim', Number(b.dataset.i) !== i));
-        showTooltip(ev, `${longDate(d.key)}<br>${name} <b>${d.v == null ? '記録なし' : fmt(d.v, 1) + ' ml'}</b>`);
+        showTooltip(ev, tip(d.key, d.v));
       };
       hit.addEventListener('pointerenter', show);
       hit.addEventListener('pointermove', show);
@@ -399,7 +403,7 @@
     // average line + label
     if (average != null) {
       svg.appendChild(el('line', { x1: m.left, x2: W - m.right, y1: y(average), y2: y(average), class: 'avg' }));
-      svg.appendChild(el('text', { x: W - m.right, y: y(average) - 4, 'text-anchor': 'end', class: 'label' }, `平均 ${fmt(average)}`));
+      svg.appendChild(el('text', { x: W - m.right, y: y(average) - 4, 'text-anchor': 'end', class: 'label' }, avgLabel(average)));
     }
     // baseline
     svg.appendChild(el('line', { x1: m.left, x2: W - m.right, y1: y(0), y2: y(0), stroke: 'var(--border)' }));
@@ -426,17 +430,18 @@
   }
   function hideTooltip() { tip.hidden = true; }
   document.addEventListener('pointerdown', (ev) => { if (!ev.target.closest('.hit')) hideTooltip(); });
-  window.addEventListener('resize', () => { if (!$('#view-chart').hidden) renderChart(); });
+  window.addEventListener('resize', () => { if (!$('#view-chart').hidden) renderChart(); if (!$('#view-visits').hidden) renderVisits(); });
 
   // ---------- settings ----------
   const S = {
-    catName: $('#s-catName'), catWeight: $('#s-catWeight'), defaultWater: $('#s-defaultWater'),
+    catName: $('#s-catName'), catWeight: $('#s-catWeight'), clinic: $('#s-clinic'), defaultWater: $('#s-defaultWater'),
     sheetDry: $('#s-sheetDry'), evap: $('#s-evap')
   };
   function fillSettings() {
     const s = state.settings;
     S.catName.value = s.catName || '';
     S.catWeight.value = s.catWeightKg ?? '';
+    S.clinic.value = s.clinicName || '';
     S.defaultWater.value = s.defaultWaterMl ?? '';
     S.sheetDry.value = s.sheetDryG ?? '';
     S.evap.value = s.evapMl ?? '';
@@ -446,6 +451,7 @@
     state.settings = {
       catName: S.catName.value.trim(),
       catWeightKg: num(S.catWeight.value),
+      clinicName: S.clinic.value.trim(),
       defaultWaterMl: num(S.defaultWater.value),
       sheetDryG: num(S.sheetDry.value),
       evapMl: num(S.evap.value)
@@ -487,9 +493,9 @@
     download(`catlog-backup-${todayKey()}.json`, JSON.stringify({ app: 'catlog', version: APP_VERSION, exportedAt: new Date().toISOString(), ...state, photos }), 'application/json');
   });
   $('#exportVisitsCsvBtn').addEventListener('click', () => {
-    const head = ['日付', '病院名', '合計金額', '診療内容', 'メモ'];
+    const head = ['日付', '病院名', '合計金額', 'メモ'];
     const rows = state.visits.slice().sort((a, b) => a.date < b.date ? -1 : 1).map((v) =>
-      [v.date, v.clinic, v.total, (v.items || []).map((i) => i.amount != null ? `${i.name} ${i.amount}` : i.name).join(' / '), v.note].map(csvCell).join(','));
+      [v.date, v.clinic, v.total, v.note].map(csvCell).join(','));
     download(`catlog-visits-${todayKey()}.csv`, '\uFEFF' + [head.join(','), ...rows].join('\r\n'), 'text/csv;charset=utf-8');
   });
   $('#importFile').addEventListener('change', async (ev) => {
@@ -587,38 +593,19 @@
     $('#photoRemoveBtn').hidden = !blob;
   }
 
-  function itemRow(item = { name: '', amount: null }) {
-    const row = document.createElement('div');
-    row.className = 'item-row';
-    row.innerHTML = `<input type="text" class="it-name" placeholder="例 再診料"><input type="number" class="it-amount" inputmode="numeric" step="1" min="0" placeholder="円"><button type="button" class="row-del" aria-label="この項目を削除">×</button>`;
-    row.querySelector('.it-name').value = item.name || '';
-    row.querySelector('.it-amount').value = item.amount ?? '';
-    row.querySelector('.row-del').addEventListener('click', () => row.remove());
-    return row;
-  }
-  function setItems(items) {
-    const box = $('#itemRows'); box.innerHTML = '';
-    (items && items.length ? items : [{ name: '', amount: null }]).forEach((it) => box.appendChild(itemRow(it)));
-  }
-  function readItems() {
-    return $$('#itemRows .item-row').map((r) => ({ name: r.querySelector('.it-name').value.trim(), amount: num(r.querySelector('.it-amount').value) }))
-      .filter((it) => it.name || it.amount != null);
-  }
-  $('#addItemBtn').addEventListener('click', () => { $('#itemRows').appendChild(itemRow()); $('#itemRows .item-row:last-child .it-name').focus(); });
-
   async function openVisitForm(visit) {
     editingVisitId = visit ? visit.id : null;
     pendingPhoto = null; pendingPhotoRemoved = false;
     $('#visitFormTitle').textContent = visit ? '通院の記録を編集' : '通院を記録';
     VF.date.value = visit ? visit.date : todayKey();
     VF.total.value = visit && visit.total != null ? visit.total : '';
-    VF.clinic.value = visit ? (visit.clinic || '') : (lastClinic() || '');
+    VF.clinic.value = visit ? (visit.clinic || '') : (state.settings.clinicName || lastClinic() || '');
     VF.note.value = visit ? (visit.note || '') : '';
-    setItems(visit ? visit.items : []);
     $('#visitDeleteBtn').hidden = !visit;
     setPreview(visit && visit.photoId ? await photoGet(visit.photoId) : null);
     $('#visitForm').hidden = false;
     $('#visitsHead').hidden = true;
+    $('#visitStats').hidden = true;
     $('#visitList').hidden = true; $('#visitsEmpty').hidden = true;
     window.scrollTo({ top: 0 });
   }
@@ -659,7 +646,6 @@
       date,
       clinic: VF.clinic.value.trim(),
       total: num(VF.total.value),
-      items: readItems(),
       note: VF.note.value.trim(),
       photoId: existing ? existing.photoId : null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
@@ -695,22 +681,17 @@
     const visits = state.visits.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (a.createdAt < b.createdAt ? 1 : -1)));
     $('#visitsEmpty').hidden = visits.length > 0 || !$('#visitForm').hidden;
     list.hidden = !$('#visitForm').hidden;
-    const year = new Date().getFullYear();
-    const thisYear = visits.filter((v) => v.date.startsWith(String(year)));
-    const sum = thisYear.reduce((a, v) => a + (v.total || 0), 0);
-    $('#visitsSummary').textContent = visits.length ? `${year}年: ${thisYear.length}回 ・ 合計 ${yen(sum)}(全 ${visits.length} 件)` : '写真を撮って日付・金額・診療内容を残せます。';
+    $('#visitsSummary').textContent = visits.length ? `全 ${visits.length} 件` : '明細の写真と日付・金額を残せます。';
     list.innerHTML = '';
+    renderVisitStats(visits);
     for (const v of visits) {
       const li = document.createElement('li');
-      const items = (v.items || []).map((i) => i.name).filter(Boolean);
       li.innerHTML = `
         <div class="v-thumb">${v.photoId ? '' : '🏥'}</div>
         <div class="v-top"><span class="v-date">${shortDate(v.date)}<span class="h-dow">(${DOW[fromKey(v.date).getDay()]}) ${fromKey(v.date).getFullYear()}</span></span><span class="v-total">${yen(v.total)}</span></div>
         <div class="v-clinic"></div>
-        <div class="v-items"></div>
         ${v.note ? '<div class="v-note"></div>' : ''}`;
       li.querySelector('.v-clinic').textContent = v.clinic || '';
-      li.querySelector('.v-items').textContent = items.length ? items.join('・') : '診療内容 未入力';
       if (v.note) li.querySelector('.v-note').textContent = v.note;
       li.addEventListener('click', (ev) => { if (ev.target.closest('.v-thumb img')) return; openVisitForm(v); });
       list.appendChild(li);
@@ -725,6 +706,47 @@
         });
       }
     }
+  }
+
+  // ---- 病院代のまとめ ----
+  function renderVisitStats(visits) {
+    const box = $('#visitStats');
+    if (!visits.length || !$('#visitForm').hidden) { box.hidden = true; return; }
+    box.hidden = false;
+    const now = new Date();
+    const y = String(now.getFullYear()), ym = `${y}-${pad(now.getMonth() + 1)}`;
+    const sum = (arr) => arr.reduce((a, v) => a + (v.total || 0), 0);
+    const inYear = visits.filter((v) => v.date.startsWith(y));
+    const inMonth = visits.filter((v) => v.date.startsWith(ym));
+    $('#stYear').textContent = yen(sum(inYear));
+    $('#stYearSub').textContent = `${inYear.length}回${inYear.length ? ` ・ 1回あたり ${yen(sum(inYear) / inYear.length)}` : ''}`;
+    $('#stMonth').textContent = yen(sum(inMonth));
+    $('#stMonthSub').textContent = `${inMonth.length}回`;
+
+    // 直近12か月
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const k = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+      const t = sum(visits.filter((v) => v.date.startsWith(k)));
+      months.push({ key: k + '-01', v: t });
+    }
+    const mAvg = months.reduce((a, m) => a + m.v, 0) / months.length;
+    drawBars($('#costChart'), months, mAvg, 'var(--cost)', '病院代', {
+      every: 2,
+      xLabel: (k) => { const d = fromKey(k); return d.getMonth() === 0 ? `${d.getFullYear()}/1` : `${d.getMonth() + 1}月`; },
+      tip: (k, v) => { const d = fromKey(k); return `${d.getFullYear()}年${d.getMonth() + 1}月<br>病院代 <b>${yen(v)}</b>`; },
+      avgLabel: (v) => `ひと月あたり ${yen(v)}`,
+      yFmt: (v) => v >= 10000 ? `${fmt(v / 10000, 1)}万` : fmt(v)
+    });
+
+    // 年ごと
+    const byYear = {};
+    for (const v of visits) { const yy = v.date.slice(0, 4); (byYear[yy] = byYear[yy] || []).push(v); }
+    $('#costYearTable tbody').innerHTML = Object.keys(byYear).sort().reverse().map((yy) => {
+      const arr = byYear[yy], t = sum(arr);
+      return `<tr><td>${yy}年</td><td>${arr.length}</td><td>${yen(t)}</td><td>${yen(t / arr.length)}</td></tr>`;
+    }).join('');
   }
 
   function openLightbox(url) { $('#lightboxImg').src = url; $('#lightbox').hidden = false; }
