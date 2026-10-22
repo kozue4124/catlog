@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=1.2.1">
+<link rel="stylesheet" href="styles.css?v=1.2.2">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -203,7 +203,7 @@
       <h2 class="card-title">明細の文字から読み取る(無料)</h2>
       <label class="field">
         <span class="field-label">明細の文字</span>
-        <textarea id="v-raw" rows="4" placeholder="ここを長押し →「テキストをスキャン」で明細にカメラをかざす"></textarea>
+        <textarea id="v-raw" rows="4" placeholder="ここを長押し →「テキストをスキャン」→ 明細にカメラをかざして「挿入」"></textarea>
       </label>
       <button type="button" class="btn btn-ai" id="parseTextBtn">📄 文字から日付・金額・内容を読み取る</button>
       <p class="hint">iPhone: 上の欄を長押しして「テキストをスキャン」を選び、明細にカメラをかざして「挿入」。文字が入ると自動で振り分けます。Android: Google レンズなどで文字をコピーして貼り付けてください。</p>
@@ -339,7 +339,7 @@
   <button type="button" class="tab" data-tab="settings"><span class="tab-icon" aria-hidden="true">⚙️</span>設定</button>
 </nav>
 
-<script src="receipt-parse.js?v=1.2.1"></script>
-<script src="app.js?v=1.2.1"></script>
+<script src="receipt-parse.js?v=1.2.2"></script>
+<script src="app.js?v=1.2.2"></script>
 </body>
 </html>

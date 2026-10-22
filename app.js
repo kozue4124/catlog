@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.2.1';
+  const APP_VERSION = '1.2.2';
   const STORAGE_KEY = 'catlog.v1';
   const APIKEY_KEY = 'catlog.apikey';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
@@ -591,11 +591,9 @@
     if (blob) { previewUrl = URL.createObjectURL(blob); img.src = previewUrl; wrap.hidden = false; }
     else { img.removeAttribute('src'); wrap.hidden = true; }
     $('#photoRemoveBtn').hidden = !blob;
-    $('#ocrBtn').hidden = !blob;
-    const hint = $('#ocrHint');
-    if (blob && !getApiKey()) hint.innerHTML = '写真から自動で読み取るには、設定で API キーを登録してください。手で入力することもできます。';
-    else if (blob) hint.textContent = '';
-    else hint.textContent = '';
+    // AI 読み取り(有料)は API キーを登録しているときだけ表示する
+    $('#ocrBtn').hidden = !blob || !getApiKey();
+    $('#ocrHint').textContent = '';
   }
 
   function itemRow(item = { name: '', amount: null }) {
