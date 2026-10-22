@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=1.2.4">
+<link rel="stylesheet" href="styles.css?v=1.2.5">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -202,17 +202,17 @@
     <div class="card">
       <h2 class="card-title">明細の文字を読み取る</h2>
       <ol class="steps">
-        <li>下の入力欄を <b>1回タップ</b>(キーボードが出ます)</li>
-        <li><b>もう一度、同じ場所をタップ</b>すると小さなメニューが出ます</li>
-        <li>メニューの <b>「ペースト」の右隣にあるマーク</b>(枠の中に文字が入った記号。これが「テキストをスキャン」です)をタップ</li>
-        <li>明細にカメラをかざし、文字が黄色く囲まれたら <b>「挿入」</b></li>
+        <li>iPhone の <b>カメラ</b>アプリを開き、明細を画面に写す</li>
+        <li>画面右下に出る <b>「テキスト認識表示」のマーク</b>(四角い枠に線の記号)をタップ</li>
+        <li><b>「すべてを選択」→「コピー」</b></li>
+        <li>ねこログに戻り、下の欄をタップして <b>「ペースト」</b></li>
       </ol>
       <label class="field">
         <span class="field-label">明細の文字</span>
         <textarea id="v-raw" rows="4" placeholder="ここに明細の文字が入ります。入ると自動で日付・金額・内容に振り分けます。"></textarea>
       </label>
       <button type="button" class="btn btn-ai" id="parseTextBtn">📄 文字から日付・金額・内容を読み取る</button>
-      <p class="hint">Android の場合は、Google レンズなどで明細の文字をコピーして上の欄に貼り付けてください。</p>
+      <p class="hint">標準の日本語キーボードをお使いなら、上の欄を 2 回タップして出るメニューの「テキストをスキャン」でも取り込めます。Android の場合は、Google レンズなどで文字をコピーして貼り付けてください。</p>
       <p class="hint" id="parseHint"></p>
     </div>
 
@@ -345,7 +345,7 @@
   <button type="button" class="tab" data-tab="settings"><span class="tab-icon" aria-hidden="true">⚙️</span>設定</button>
 </nav>
 
-<script src="receipt-parse.js?v=1.2.4"></script>
-<script src="app.js?v=1.2.4"></script>
+<script src="receipt-parse.js?v=1.2.5"></script>
+<script src="app.js?v=1.2.5"></script>
 </body>
 </html>

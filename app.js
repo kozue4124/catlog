@@ -2,7 +2,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.2.4';
+  const APP_VERSION = '1.2.5';
   const STORAGE_KEY = 'catlog.v1';
   const APIKEY_KEY = 'catlog.apikey';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
