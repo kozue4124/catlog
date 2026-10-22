@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=1.2.5">
+<link rel="stylesheet" href="styles.css?v=1.3.0">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -194,27 +194,9 @@
           <label class="btn btn-sm">🖼 写真を選ぶ<input type="file" id="photoFile" accept="image/*" hidden></label>
           <button type="button" class="btn btn-sm btn-ghost" id="photoRemoveBtn" hidden>写真を外す</button>
         </div>
-        <button type="button" class="btn btn-ai" id="ocrBtn" hidden>✨ 写真から日付・金額・内容を読み取る</button>
-        <p class="hint" id="ocrHint"></p>
       </div>
     </div>
 
-    <div class="card">
-      <h2 class="card-title">明細の文字を読み取る</h2>
-      <ol class="steps">
-        <li>iPhone の <b>カメラ</b>アプリを開き、明細を画面に写す</li>
-        <li>画面右下に出る <b>「テキスト認識表示」のマーク</b>(四角い枠に線の記号)をタップ</li>
-        <li><b>「すべてを選択」→「コピー」</b></li>
-        <li>ねこログに戻り、下の欄をタップして <b>「ペースト」</b></li>
-      </ol>
-      <label class="field">
-        <span class="field-label">明細の文字</span>
-        <textarea id="v-raw" rows="4" placeholder="ここに明細の文字が入ります。入ると自動で日付・金額・内容に振り分けます。"></textarea>
-      </label>
-      <button type="button" class="btn btn-ai" id="parseTextBtn">📄 文字から日付・金額・内容を読み取る</button>
-      <p class="hint">標準の日本語キーボードをお使いなら、上の欄を 2 回タップして出るメニューの「テキストをスキャン」でも取り込めます。Android の場合は、Google レンズなどで文字をコピーして貼り付けてください。</p>
-      <p class="hint" id="parseHint"></p>
-    </div>
 
     <div class="card">
       <div class="grid2">
@@ -294,14 +276,6 @@
       <p class="hint">猫のいない状態で給水器に水を入れ、24時間後に減った量を測ると蒸発量の目安になります。入力すると「飲んだ量」からその分を引きます。</p>
     </div>
 
-    <div class="card">
-      <h2 class="card-title">✨ 写真の AI 読み取り(任意)</h2>
-      <label class="field">
-        <span class="field-label">Anthropic API キー</span>
-        <input type="password" id="s-apiKey" autocomplete="off" placeholder="sk-ant-…">
-      </label>
-      <p class="hint">入れておくと、通院の記録で明細の写真から日付・金額・診療内容を自動で読み取れます。キーは <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> で発行できます(従量課金。写真 1 枚あたり 1〜3 円程度)。キーはこの端末の中だけに保存され、バックアップには含まれません。読み取り時は写真が Anthropic のサーバーに送信されます。</p>
-    </div>
 
     <div class="actions">
       <button type="submit" class="btn btn-primary">設定を保存</button>
@@ -345,7 +319,6 @@
   <button type="button" class="tab" data-tab="settings"><span class="tab-icon" aria-hidden="true">⚙️</span>設定</button>
 </nav>
 
-<script src="receipt-parse.js?v=1.2.5"></script>
-<script src="app.js?v=1.2.5"></script>
+<script src="app.js?v=1.3.0"></script>
 </body>
 </html>

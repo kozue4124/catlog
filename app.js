@@ -2,9 +2,8 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.2.5';
+  const APP_VERSION = '1.3.0';
   const STORAGE_KEY = 'catlog.v1';
-  const APIKEY_KEY = 'catlog.apikey';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
   const POOP_LABEL = { morning: '朝', noon: '昼', night: '夜' };
   const POOP_ORDER = ['morning', 'noon', 'night'];
@@ -441,10 +440,7 @@
     S.defaultWater.value = s.defaultWaterMl ?? '';
     S.sheetDry.value = s.sheetDryG ?? '';
     S.evap.value = s.evapMl ?? '';
-    $('#s-apiKey').value = getApiKey();
   }
-  function getApiKey() { try { return localStorage.getItem(APIKEY_KEY) || ''; } catch (e) { return ''; } }
-  function setApiKey(k) { try { if (k) localStorage.setItem(APIKEY_KEY, k); else localStorage.removeItem(APIKEY_KEY); } catch (e) {} }
   $('#settingsForm').addEventListener('submit', (ev) => {
     ev.preventDefault();
     state.settings = {
@@ -454,7 +450,6 @@
       sheetDryG: num(S.sheetDry.value),
       evapMl: num(S.evap.value)
     };
-    setApiKey($('#s-apiKey').value.trim());
     save(); renderHeader(); toast('#settingsToast', '設定を保存しました');
     // 今日の未保存フォームに初期値を反映
     if (!state.entries[F.date.value]) {
@@ -508,7 +503,7 @@
       const mode = confirm(`${n}日分の記録${nv ? `と通院 ${nv} 件` : ''}が見つかりました。\n「OK」= 今あるデータに追加・上書き(マージ)\n「キャンセル」= 読み込まない`);
       if (!mode) return;
       state.entries = { ...state.entries, ...data.entries };
-      if (data.settings) { const { apiKey, ...rest } = data.settings; state.settings = { ...state.settings, ...rest }; }
+      if (data.settings) state.settings = { ...state.settings, ...data.settings };
       if (nv) {
         const byId = new Map(state.visits.map((v) => [v.id, v]));
         for (const v of data.visits) byId.set(v.id, v);
@@ -526,7 +521,6 @@
     if (!confirm('すべての記録と設定を削除します。元に戻せません。よろしいですか?')) return;
     if (!confirm('本当に削除しますか?(先にバックアップをおすすめします)')) return;
     state = { settings: defaultSettings(), entries: {}, visits: [] };
-    setApiKey('');
     photoClearAll().catch(() => {});
     save(); renderHeader(); fillSettings(); fillForm(todayKey()); alert('削除しました。');
   });
@@ -579,7 +573,7 @@
   }
 
   // ---- フォーム状態 ----
-  const VF = { date: $('#v-date'), total: $('#v-total'), clinic: $('#v-clinic'), note: $('#v-note'), raw: $('#v-raw') };
+  const VF = { date: $('#v-date'), total: $('#v-total'), clinic: $('#v-clinic'), note: $('#v-note') };
   let editingVisitId = null;
   let pendingPhoto = null;        // { blob, id } 保存前の写真
   let pendingPhotoRemoved = false;
@@ -591,9 +585,6 @@
     if (blob) { previewUrl = URL.createObjectURL(blob); img.src = previewUrl; wrap.hidden = false; }
     else { img.removeAttribute('src'); wrap.hidden = true; }
     $('#photoRemoveBtn').hidden = !blob;
-    // AI 読み取り(有料)は API キーを登録しているときだけ表示する
-    $('#ocrBtn').hidden = !blob || !getApiKey();
-    $('#ocrHint').textContent = '';
   }
 
   function itemRow(item = { name: '', amount: null }) {
@@ -623,8 +614,6 @@
     VF.total.value = visit && visit.total != null ? visit.total : '';
     VF.clinic.value = visit ? (visit.clinic || '') : (lastClinic() || '');
     VF.note.value = visit ? (visit.note || '') : '';
-    VF.raw.value = visit ? (visit.rawText || '') : '';
-    $('#parseHint').textContent = '';
     setItems(visit ? visit.items : []);
     $('#visitDeleteBtn').hidden = !visit;
     setPreview(visit && visit.photoId ? await photoGet(visit.photoId) : null);
@@ -672,7 +661,6 @@
       total: num(VF.total.value),
       items: readItems(),
       note: VF.note.value.trim(),
-      rawText: VF.raw.value.trim(),
       photoId: existing ? existing.photoId : null,
       createdAt: existing ? existing.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -743,134 +731,6 @@
   function closeLightbox() { $('#lightbox').hidden = true; $('#lightboxImg').removeAttribute('src'); }
   $('#lightbox').addEventListener('click', closeLightbox);
   $('#lightboxClose').addEventListener('click', closeLightbox);
-
-  // ---- 文字からの読み取り(無料・端末内) ----
-  function applyParsed(r, overwrite) {
-    const hint = $('#parseHint');
-    let filled = [];
-    if (r.date && (overwrite || !VF.date.value || VF.date.value === todayKey())) { VF.date.value = r.date; filled.push('日付'); }
-    if (r.total != null && (overwrite || VF.total.value === '')) { VF.total.value = Math.round(r.total); filled.push('合計金額'); }
-    if (r.clinic && (overwrite || VF.clinic.value === '' || VF.clinic.value === lastClinic())) { VF.clinic.value = r.clinic; filled.push('病院名'); }
-    const curItems = readItems();
-    if (r.items && r.items.length && (overwrite || curItems.length === 0)) { setItems(r.items); filled.push(`診療内容 ${r.items.length} 件`); }
-    if (filled.length) hint.textContent = `${filled.join('・')} を入れました。内容を確認して、違っていれば直してから保存してください。`;
-    else hint.textContent = '文字から日付や金額を見つけられませんでした。手で入力してください。';
-    return filled.length;
-  }
-  function parseRaw(overwrite) {
-    const text = VF.raw.value.trim();
-    if (!text) { $('#parseHint').textContent = '明細の文字を入れてください。'; return; }
-    if (typeof window.parseReceiptText !== 'function') { $('#parseHint').textContent = '読み取り機能を読み込めませんでした。アプリを開き直してください。'; return; }
-    applyParsed(window.parseReceiptText(text), overwrite);
-  }
-  $('#parseTextBtn').addEventListener('click', () => parseRaw(true));
-  let rawTimer = null;
-  VF.raw.addEventListener('input', () => {
-    clearTimeout(rawTimer);
-    rawTimer = setTimeout(() => { if (VF.raw.value.trim().length >= 10) parseRaw(false); }, 700);
-  });
-
-  // ---- AI 読み取り(Claude API) ----
-  const RECEIPT_SCHEMA = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['date', 'clinic', 'total', 'items', 'pet_name', 'notes'],
-    properties: {
-      date: { type: ['string', 'null'], description: '診療日または発行日。YYYY-MM-DD 形式。読めなければ null' },
-      clinic: { type: ['string', 'null'], description: '病院名。読めなければ null' },
-      total: { type: ['number', 'null'], description: '実際に支払った合計金額(税込、円)。読めなければ null' },
-      items: {
-        type: 'array',
-        description: '診療明細の各行。小計・税・合計の行は含めない',
-        items: {
-          type: 'object', additionalProperties: false, required: ['name', 'amount'],
-          properties: {
-            name: { type: 'string', description: '項目名。括弧内の補足行(薬品名や袋数など)は親項目の名前に含める' },
-            amount: { type: ['number', 'null'], description: 'その行の金額(円)。読めなければ null' }
-          }
-        }
-      },
-      pet_name: { type: ['string', 'null'] },
-      notes: { type: ['string', 'null'], description: '次回予約や注意書きなど、記録に残す価値のある補足。なければ null' }
-    }
-  };
-  const OCR_PROMPT = 'この写真は日本の動物病院の診療明細書(領収書)です。日付、病院名、支払った合計金額(税込)、診療明細の各項目(項目名と金額)を読み取ってください。小計・消費税・合計の行は items に含めないでください。括弧書きの補足行(例: 薬品名や袋数)は、その直前の項目名に含めて 1 行にまとめてください。読めない箇所は null にしてください。';
-
-  async function extractReceipt(blob) {
-    const key = getApiKey();
-    if (!key) throw new Error('NO_KEY');
-    const dataUrl = await blobToDataUrl(blob);
-    const b64 = dataUrl.split(',')[1];
-    const body = {
-      model: 'claude-opus-5-5',
-      max_tokens: 4000,
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: RECEIPT_SCHEMA } },
-      messages: [{ role: 'user', content: [
-        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
-        { type: 'text', text: OCR_PROMPT }
-      ] }]
-    };
-    const call = async (payload) => fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2026-10-21',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify(payload)
-    });
-    let res = await call(body);
-    if (res.status === 400) {
-      // 構造化出力が使えない場合は通常出力で再試行し、本文から JSON を取り出す
-      const errText = await res.text();
-      if (/output_config|format/i.test(errText)) {
-        const { output_config, ...rest } = body;
-        rest.messages[0].content[1].text += ' 次の JSON だけを出力してください: ' + JSON.stringify(RECEIPT_SCHEMA.properties);
-        res = await call(rest);
-      } else {
-        throw new Error('API_400: ' + errText.slice(0, 200));
-      }
-    }
-    if (res.status === 401) throw new Error('AUTH');
-    if (res.status === 429) throw new Error('RATE');
-    if (!res.ok) throw new Error(`HTTP_${res.status}`);
-    const msg = await res.json();
-    if (msg.stop_reason === 'refusal') throw new Error('REFUSED');
-    const text = (msg.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('');
-    const m = text.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error('PARSE');
-    return JSON.parse(m[0]);
-  }
-
-  $('#ocrBtn').addEventListener('click', async () => {
-    const blob = pendingPhoto ? pendingPhoto.blob : (editingVisitId ? await photoGet((state.visits.find((v) => v.id === editingVisitId) || {}).photoId) : null);
-    if (!blob) return;
-    if (!getApiKey()) { alert('設定で API キーを登録すると、写真から自動で読み取れます。'); return; }
-    const btn = $('#ocrBtn'), hint = $('#ocrHint');
-    btn.disabled = true; btn.textContent = '読み取り中…(10〜30秒)'; hint.textContent = '';
-    try {
-      const r = await extractReceipt(blob);
-      if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) VF.date.value = r.date;
-      if (r.clinic) VF.clinic.value = r.clinic;
-      if (r.total != null) VF.total.value = Math.round(r.total);
-      if (Array.isArray(r.items) && r.items.length) setItems(r.items.map((i) => ({ name: i.name || '', amount: i.amount })));
-      if (r.notes && !VF.note.value) VF.note.value = r.notes;
-      hint.textContent = '読み取りました。内容を確認して、違っていれば直してから保存してください。';
-    } catch (e) {
-      const code = String(e.message || e);
-      hint.textContent =
-        code === 'AUTH' ? 'API キーが正しくないようです。設定を確認してください。' :
-        code === 'RATE' ? '混み合っています。少し待ってからもう一度お試しください。' :
-        code === 'REFUSED' ? '読み取りが拒否されました。別の写真でお試しください。' :
-        code === 'PARSE' ? '読み取り結果を解釈できませんでした。もう一度お試しください。' :
-        code.startsWith('API_400') ? '読み取りに失敗しました: ' + code.slice(9) :
-        '読み取りに失敗しました。通信状態を確認してもう一度お試しください。';
-      console.warn('ocr failed', e);
-    } finally {
-      btn.disabled = false; btn.textContent = '✨ 写真から日付・金額・内容を読み取る';
-    }
-  });
 
   // ---------- init ----------
   $('#appVersion').textContent = APP_VERSION;
