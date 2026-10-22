@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=1.1.5">
+<link rel="stylesheet" href="styles.css?v=1.2.0">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -172,6 +172,79 @@
   <div class="tooltip" id="tooltip" hidden></div>
 </section>
 
+<!-- ===== 通院 ===== -->
+<section class="view" id="view-visits" data-view="visits" hidden>
+  <div class="card" id="visitsHead">
+    <div class="visits-head-row">
+      <div>
+        <h2 class="card-title">通院の記録</h2>
+        <p class="hint" id="visitsSummary"></p>
+      </div>
+      <button type="button" class="btn btn-primary btn-sm" id="newVisitBtn">＋ 記録する</button>
+    </div>
+  </div>
+
+  <form id="visitForm" class="visit-form" autocomplete="off" novalidate hidden>
+    <div class="card">
+      <h2 class="card-title" id="visitFormTitle">通院を記録</h2>
+      <div class="photo-area">
+        <div class="photo-preview" id="photoPreview" hidden><img id="photoImg" alt="診療明細の写真"></div>
+        <div class="photo-buttons">
+          <label class="btn btn-sm">📷 明細を撮影<input type="file" id="photoCamera" accept="image/*" capture="environment" hidden></label>
+          <label class="btn btn-sm">🖼 写真を選ぶ<input type="file" id="photoFile" accept="image/*" hidden></label>
+          <button type="button" class="btn btn-sm btn-ghost" id="photoRemoveBtn" hidden>写真を外す</button>
+        </div>
+        <button type="button" class="btn btn-ai" id="ocrBtn" hidden>✨ 写真から日付・金額・内容を読み取る</button>
+        <p class="hint" id="ocrHint"></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid2">
+        <label class="field">
+          <span class="field-label">日付</span>
+          <input type="date" id="v-date" required>
+        </label>
+        <label class="field">
+          <span class="field-label">合計金額 <small>円(税込)</small></span>
+          <input type="number" id="v-total" inputmode="numeric" step="1" min="0" placeholder="例 5775">
+        </label>
+      </div>
+      <label class="field">
+        <span class="field-label">病院名</span>
+        <input type="text" id="v-clinic" placeholder="例 ○○どうぶつ病院">
+      </label>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">診療内容</h2>
+      <div id="itemRows" class="item-rows"></div>
+      <button type="button" class="btn-link" id="addItemBtn">＋ 項目を追加</button>
+      <p class="hint">金額は税抜のままでも構いません。合計金額は上の欄に税込で入れてください。</p>
+    </div>
+
+    <div class="card">
+      <label class="field">
+        <span class="field-label">メモ(任意)</span>
+        <textarea id="v-note" rows="3" placeholder="先生の話、処方、次回の予定など"></textarea>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" id="visitCancelBtn">キャンセル</button>
+      <button type="submit" class="btn btn-primary">保存する</button>
+    </div>
+    <div class="actions actions-sub">
+      <button type="button" class="btn-link btn-link-danger" id="visitDeleteBtn" hidden>この通院記録を削除</button>
+    </div>
+  </form>
+
+  <ul class="visits" id="visitList"></ul>
+  <p class="empty" id="visitsEmpty" hidden>まだ通院の記録がありません。「＋ 記録する」から追加できます。</p>
+</section>
+
+<div class="lightbox" id="lightbox" hidden><img id="lightboxImg" alt="診療明細の写真(拡大)"><button type="button" class="lightbox-close" id="lightboxClose" aria-label="閉じる">×</button></div>
+
 <!-- ===== 設定 ===== -->
 <section class="view" id="view-settings" data-view="settings" hidden>
   <form id="settingsForm" autocomplete="off" novalidate>
@@ -204,6 +277,15 @@
       <p class="hint">猫のいない状態で給水器に水を入れ、24時間後に減った量を測ると蒸発量の目安になります。入力すると「飲んだ量」からその分を引きます。</p>
     </div>
 
+    <div class="card">
+      <h2 class="card-title">✨ 写真の AI 読み取り(任意)</h2>
+      <label class="field">
+        <span class="field-label">Anthropic API キー</span>
+        <input type="password" id="s-apiKey" autocomplete="off" placeholder="sk-ant-…">
+      </label>
+      <p class="hint">入れておくと、通院の記録で明細の写真から日付・金額・診療内容を自動で読み取れます。キーは <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> で発行できます(従量課金。写真 1 枚あたり 1〜3 円程度)。キーはこの端末の中だけに保存され、バックアップには含まれません。読み取り時は写真が Anthropic のサーバーに送信されます。</p>
+    </div>
+
     <div class="actions">
       <button type="submit" class="btn btn-primary">設定を保存</button>
     </div>
@@ -212,10 +294,11 @@
 
   <div class="card">
     <h2 class="card-title">データ</h2>
-    <p class="hint">データはこの端末のブラウザ内だけに保存されます。機種変更やブラウザのデータ削除に備えて、ときどきバックアップしてください。</p>
+    <p class="hint">データはこの端末のブラウザ内だけに保存されます。機種変更やブラウザのデータ削除に備えて、ときどきバックアップしてください。バックアップには通院の写真も含まれます。</p>
     <p class="hint"><b>ホーム画面に追加したアプリと、Safari や Chrome で開いたページは別々の保存場所</b>です。片方で付けた記録はもう片方には表示されません。移したいときは、記録のある方で「バックアップを保存」し、もう片方で「バックアップを読み込む」を使ってください。</p>
     <div class="actions actions-col">
-      <button type="button" class="btn" id="exportCsvBtn">CSVで書き出す(Excel・スプレッドシート用)</button>
+      <button type="button" class="btn" id="exportCsvBtn">毎日の記録を CSV で書き出す</button>
+      <button type="button" class="btn" id="exportVisitsCsvBtn">通院の記録を CSV で書き出す</button>
       <button type="button" class="btn" id="exportJsonBtn">バックアップを保存(JSON)</button>
       <label class="btn btn-file">バックアップを読み込む<input type="file" id="importFile" accept="application/json,.json" hidden></label>
       <button type="button" class="btn btn-danger" id="wipeBtn">すべての記録を削除</button>
@@ -241,9 +324,10 @@
   <button type="button" class="tab is-active" data-tab="record"><span class="tab-icon" aria-hidden="true">✏️</span>記録</button>
   <button type="button" class="tab" data-tab="history"><span class="tab-icon" aria-hidden="true">📋</span>履歴</button>
   <button type="button" class="tab" data-tab="chart"><span class="tab-icon" aria-hidden="true">📈</span>グラフ</button>
+  <button type="button" class="tab" data-tab="visits"><span class="tab-icon" aria-hidden="true">🏥</span>通院</button>
   <button type="button" class="tab" data-tab="settings"><span class="tab-icon" aria-hidden="true">⚙️</span>設定</button>
 </nav>
 
-<script src="app.js?v=1.1.5"></script>
+<script src="app.js?v=1.2.0"></script>
 </body>
 </html>

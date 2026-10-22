@@ -2,8 +2,9 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '1.1.5';
+  const APP_VERSION = '1.2.0';
   const STORAGE_KEY = 'catlog.v1';
+  const APIKEY_KEY = 'catlog.apikey';
   const DOW = ['日', '月', '火', '水', '木', '金', '土'];
   const POOP_LABEL = { morning: '朝', noon: '昼', night: '夜' };
   const POOP_ORDER = ['morning', 'noon', 'night'];
@@ -20,10 +21,10 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        return { settings: { ...defaultSettings(), ...(parsed.settings || {}) }, entries: parsed.entries || {} };
+        return { settings: { ...defaultSettings(), ...(parsed.settings || {}) }, entries: parsed.entries || {}, visits: parsed.visits || [] };
       }
     } catch (e) { console.warn('load failed', e); }
-    return { settings: defaultSettings(), entries: {} };
+    return { settings: defaultSettings(), entries: {}, visits: [] };
   }
   function save() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -73,6 +74,7 @@
     $$('.tab').forEach((t) => t.classList.toggle('is-active', t.dataset.tab === name));
     if (name === 'history') renderHistory();
     if (name === 'chart') renderChart();
+    if (name === 'visits') renderVisits();
     if (name === 'settings') fillSettings();
     window.scrollTo({ top: 0 });
     hideTooltip();
@@ -439,7 +441,10 @@
     S.defaultWater.value = s.defaultWaterMl ?? '';
     S.sheetDry.value = s.sheetDryG ?? '';
     S.evap.value = s.evapMl ?? '';
+    $('#s-apiKey').value = getApiKey();
   }
+  function getApiKey() { try { return localStorage.getItem(APIKEY_KEY) || ''; } catch (e) { return ''; } }
+  function setApiKey(k) { try { if (k) localStorage.setItem(APIKEY_KEY, k); else localStorage.removeItem(APIKEY_KEY); } catch (e) {} }
   $('#settingsForm').addEventListener('submit', (ev) => {
     ev.preventDefault();
     state.settings = {
@@ -449,6 +454,7 @@
       sheetDryG: num(S.sheetDry.value),
       evapMl: num(S.evap.value)
     };
+    setApiKey($('#s-apiKey').value.trim());
     save(); renderHeader(); toast('#settingsToast', '設定を保存しました');
     // 今日の未保存フォームに初期値を反映
     if (!state.entries[F.date.value]) {
@@ -476,8 +482,20 @@
     });
     download(`catlog-${todayKey()}.csv`, '﻿' + [head.join(','), ...rows].join('\r\n'), 'text/csv;charset=utf-8');
   });
-  $('#exportJsonBtn').addEventListener('click', () => {
-    download(`catlog-backup-${todayKey()}.json`, JSON.stringify({ app: 'catlog', version: APP_VERSION, exportedAt: new Date().toISOString(), ...state }, null, 2), 'application/json');
+  $('#exportJsonBtn').addEventListener('click', async () => {
+    const photos = {};
+    for (const v of state.visits) {
+      if (!v.photoId) continue;
+      const blob = await photoGet(v.photoId);
+      if (blob) photos[v.photoId] = await blobToDataUrl(blob);
+    }
+    download(`catlog-backup-${todayKey()}.json`, JSON.stringify({ app: 'catlog', version: APP_VERSION, exportedAt: new Date().toISOString(), ...state, photos }), 'application/json');
+  });
+  $('#exportVisitsCsvBtn').addEventListener('click', () => {
+    const head = ['日付', '病院名', '合計金額', '診療内容', 'メモ'];
+    const rows = state.visits.slice().sort((a, b) => a.date < b.date ? -1 : 1).map((v) =>
+      [v.date, v.clinic, v.total, (v.items || []).map((i) => i.amount != null ? `${i.name} ${i.amount}` : i.name).join(' / '), v.note].map(csvCell).join(','));
+    download(`catlog-visits-${todayKey()}.csv`, '\uFEFF' + [head.join(','), ...rows].join('\r\n'), 'text/csv;charset=utf-8');
   });
   $('#importFile').addEventListener('change', async (ev) => {
     const file = ev.target.files[0]; ev.target.value = '';
@@ -486,18 +504,345 @@
       const data = JSON.parse(await file.text());
       if (!data || typeof data.entries !== 'object') throw new Error('形式が違います');
       const n = Object.keys(data.entries).length;
-      const mode = confirm(`${n}日分の記録が見つかりました。\n「OK」= 今あるデータに追加・上書き(マージ)\n「キャンセル」= 読み込まない`);
+      const nv = Array.isArray(data.visits) ? data.visits.length : 0;
+      const mode = confirm(`${n}日分の記録${nv ? `と通院 ${nv} 件` : ''}が見つかりました。\n「OK」= 今あるデータに追加・上書き(マージ)\n「キャンセル」= 読み込まない`);
       if (!mode) return;
       state.entries = { ...state.entries, ...data.entries };
-      if (data.settings) state.settings = { ...state.settings, ...data.settings };
+      if (data.settings) { const { apiKey, ...rest } = data.settings; state.settings = { ...state.settings, ...rest }; }
+      if (nv) {
+        const byId = new Map(state.visits.map((v) => [v.id, v]));
+        for (const v of data.visits) byId.set(v.id, v);
+        state.visits = Array.from(byId.values());
+        if (data.photos) {
+          for (const [id, dataUrl] of Object.entries(data.photos)) {
+            try { await photoPut(id, await (await fetch(dataUrl)).blob()); } catch (e) { console.warn('photo import failed', id, e); }
+          }
+        }
+      }
       save(); renderHeader(); fillSettings(); alert('読み込みました。');
     } catch (e) { alert('読み込めませんでした: ' + e.message); }
   });
   $('#wipeBtn').addEventListener('click', () => {
     if (!confirm('すべての記録と設定を削除します。元に戻せません。よろしいですか?')) return;
     if (!confirm('本当に削除しますか?(先にバックアップをおすすめします)')) return;
-    state = { settings: defaultSettings(), entries: {} };
+    state = { settings: defaultSettings(), entries: {}, visits: [] };
+    setApiKey('');
+    photoClearAll().catch(() => {});
     save(); renderHeader(); fillSettings(); fillForm(todayKey()); alert('削除しました。');
+  });
+
+
+  // ====================================================================
+  // 通院の記録
+  // ====================================================================
+
+  // ---- 写真の保存(IndexedDB) ----
+  const DB_NAME = 'catlog', DB_VER = 1, PHOTO_STORE = 'photos';
+  function openDb() {
+    return new Promise((resolve, reject) => {
+      if (!('indexedDB' in window)) { reject(new Error('indexedDB unavailable')); return; }
+      const req = indexedDB.open(DB_NAME, DB_VER);
+      req.onupgradeneeded = () => { const db = req.result; if (!db.objectStoreNames.contains(PHOTO_STORE)) db.createObjectStore(PHOTO_STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  function idb(mode, fn) {
+    return openDb().then((db) => new Promise((resolve, reject) => {
+      const tx = db.transaction(PHOTO_STORE, mode);
+      const st = tx.objectStore(PHOTO_STORE);
+      const r = fn(st);
+      tx.oncomplete = () => resolve(r && 'result' in r ? r.result : undefined);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    }));
+  }
+  const photoPut = (id, blob) => idb('readwrite', (st) => st.put(blob, id));
+  const photoGet = (id) => idb('readonly', (st) => st.get(id)).catch(() => null);
+  const photoDel = (id) => idb('readwrite', (st) => st.delete(id)).catch(() => {});
+  const photoClearAll = () => idb('readwrite', (st) => st.clear());
+  const blobToDataUrl = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+  const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+  // 写真を縮小して JPEG に(保存容量と送信サイズを抑える)
+  async function shrinkImage(file, maxEdge = 1568, quality = 0.85) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', quality));
+      return blob || file;
+    } finally { URL.revokeObjectURL(url); }
+  }
+
+  // ---- フォーム状態 ----
+  const VF = { date: $('#v-date'), total: $('#v-total'), clinic: $('#v-clinic'), note: $('#v-note') };
+  let editingVisitId = null;
+  let pendingPhoto = null;        // { blob, id } 保存前の写真
+  let pendingPhotoRemoved = false;
+  let previewUrl = null;
+
+  function setPreview(blob) {
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+    const wrap = $('#photoPreview'), img = $('#photoImg');
+    if (blob) { previewUrl = URL.createObjectURL(blob); img.src = previewUrl; wrap.hidden = false; }
+    else { img.removeAttribute('src'); wrap.hidden = true; }
+    $('#photoRemoveBtn').hidden = !blob;
+    $('#ocrBtn').hidden = !blob;
+    const hint = $('#ocrHint');
+    if (blob && !getApiKey()) hint.innerHTML = '写真から自動で読み取るには、設定で API キーを登録してください。手で入力することもできます。';
+    else if (blob) hint.textContent = '';
+    else hint.textContent = '';
+  }
+
+  function itemRow(item = { name: '', amount: null }) {
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.innerHTML = `<input type="text" class="it-name" placeholder="例 再診料"><input type="number" class="it-amount" inputmode="numeric" step="1" min="0" placeholder="円"><button type="button" class="row-del" aria-label="この項目を削除">×</button>`;
+    row.querySelector('.it-name').value = item.name || '';
+    row.querySelector('.it-amount').value = item.amount ?? '';
+    row.querySelector('.row-del').addEventListener('click', () => row.remove());
+    return row;
+  }
+  function setItems(items) {
+    const box = $('#itemRows'); box.innerHTML = '';
+    (items && items.length ? items : [{ name: '', amount: null }]).forEach((it) => box.appendChild(itemRow(it)));
+  }
+  function readItems() {
+    return $$('#itemRows .item-row').map((r) => ({ name: r.querySelector('.it-name').value.trim(), amount: num(r.querySelector('.it-amount').value) }))
+      .filter((it) => it.name || it.amount != null);
+  }
+  $('#addItemBtn').addEventListener('click', () => { $('#itemRows').appendChild(itemRow()); $('#itemRows .item-row:last-child .it-name').focus(); });
+
+  async function openVisitForm(visit) {
+    editingVisitId = visit ? visit.id : null;
+    pendingPhoto = null; pendingPhotoRemoved = false;
+    $('#visitFormTitle').textContent = visit ? '通院の記録を編集' : '通院を記録';
+    VF.date.value = visit ? visit.date : todayKey();
+    VF.total.value = visit && visit.total != null ? visit.total : '';
+    VF.clinic.value = visit ? (visit.clinic || '') : (lastClinic() || '');
+    VF.note.value = visit ? (visit.note || '') : '';
+    setItems(visit ? visit.items : []);
+    $('#visitDeleteBtn').hidden = !visit;
+    setPreview(visit && visit.photoId ? await photoGet(visit.photoId) : null);
+    $('#visitForm').hidden = false;
+    $('#visitsHead').hidden = true;
+    $('#visitList').hidden = true; $('#visitsEmpty').hidden = true;
+    window.scrollTo({ top: 0 });
+  }
+  function closeVisitForm() {
+    $('#visitForm').hidden = true;
+    $('#visitsHead').hidden = false;
+    setPreview(null);
+    pendingPhoto = null; editingVisitId = null;
+    renderVisits();
+  }
+  const lastClinic = () => { const v = state.visits.slice().sort((a, b) => a.date < b.date ? 1 : -1).find((x) => x.clinic); return v ? v.clinic : ''; };
+
+  $('#newVisitBtn').addEventListener('click', () => openVisitForm(null));
+  $('#visitCancelBtn').addEventListener('click', closeVisitForm);
+
+  async function onPhotoPicked(ev) {
+    const file = ev.target.files[0]; ev.target.value = '';
+    if (!file) return;
+    try {
+      const blob = await shrinkImage(file);
+      pendingPhoto = { blob, id: uid() };
+      pendingPhotoRemoved = false;
+      setPreview(blob);
+    } catch (e) { alert('写真を読み込めませんでした。'); }
+  }
+  $('#photoCamera').addEventListener('change', onPhotoPicked);
+  $('#photoFile').addEventListener('change', onPhotoPicked);
+  $('#photoRemoveBtn').addEventListener('click', () => { pendingPhoto = null; pendingPhotoRemoved = true; setPreview(null); });
+  $('#photoImg').addEventListener('click', () => { if (previewUrl) openLightbox(previewUrl); });
+
+  $('#visitForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const date = VF.date.value;
+    if (!date) { alert('日付を入れてください。'); VF.date.focus(); return; }
+    const existing = editingVisitId ? state.visits.find((v) => v.id === editingVisitId) : null;
+    const visit = {
+      id: existing ? existing.id : uid(),
+      date,
+      clinic: VF.clinic.value.trim(),
+      total: num(VF.total.value),
+      items: readItems(),
+      note: VF.note.value.trim(),
+      photoId: existing ? existing.photoId : null,
+      createdAt: existing ? existing.createdAt : new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      if (pendingPhoto) {
+        await photoPut(pendingPhoto.id, pendingPhoto.blob);
+        if (visit.photoId && visit.photoId !== pendingPhoto.id) await photoDel(visit.photoId);
+        visit.photoId = pendingPhoto.id;
+      } else if (pendingPhotoRemoved && visit.photoId) {
+        await photoDel(visit.photoId); visit.photoId = null;
+      }
+    } catch (e) { alert('写真の保存に失敗しました。写真なしで保存します。'); visit.photoId = null; }
+    if (existing) Object.assign(existing, visit); else state.visits.push(visit);
+    save();
+    closeVisitForm();
+  });
+
+  $('#visitDeleteBtn').addEventListener('click', async () => {
+    const v = state.visits.find((x) => x.id === editingVisitId);
+    if (!v || !confirm(`${longDate(v.date)} の通院記録を削除しますか?`)) return;
+    if (v.photoId) await photoDel(v.photoId);
+    state.visits = state.visits.filter((x) => x.id !== v.id);
+    save(); closeVisitForm();
+  });
+
+  // ---- 一覧 ----
+  const yen = (n) => n == null ? '–' : '¥' + Math.round(n).toLocaleString('ja-JP');
+  const thumbUrls = new Map();
+  async function renderVisits() {
+    const list = $('#visitList');
+    const visits = state.visits.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (a.createdAt < b.createdAt ? 1 : -1)));
+    $('#visitsEmpty').hidden = visits.length > 0 || !$('#visitForm').hidden;
+    list.hidden = !$('#visitForm').hidden;
+    const year = new Date().getFullYear();
+    const thisYear = visits.filter((v) => v.date.startsWith(String(year)));
+    const sum = thisYear.reduce((a, v) => a + (v.total || 0), 0);
+    $('#visitsSummary').textContent = visits.length ? `${year}年: ${thisYear.length}回 ・ 合計 ${yen(sum)}(全 ${visits.length} 件)` : '写真を撮って日付・金額・診療内容を残せます。';
+    list.innerHTML = '';
+    for (const v of visits) {
+      const li = document.createElement('li');
+      const items = (v.items || []).map((i) => i.name).filter(Boolean);
+      li.innerHTML = `
+        <div class="v-thumb">${v.photoId ? '' : '🏥'}</div>
+        <div class="v-top"><span class="v-date">${shortDate(v.date)}<span class="h-dow">(${DOW[fromKey(v.date).getDay()]}) ${fromKey(v.date).getFullYear()}</span></span><span class="v-total">${yen(v.total)}</span></div>
+        <div class="v-clinic"></div>
+        <div class="v-items"></div>
+        ${v.note ? '<div class="v-note"></div>' : ''}`;
+      li.querySelector('.v-clinic').textContent = v.clinic || '';
+      li.querySelector('.v-items').textContent = items.length ? items.join('・') : '診療内容 未入力';
+      if (v.note) li.querySelector('.v-note').textContent = v.note;
+      li.addEventListener('click', (ev) => { if (ev.target.closest('.v-thumb img')) return; openVisitForm(v); });
+      list.appendChild(li);
+      if (v.photoId) {
+        photoGet(v.photoId).then((blob) => {
+          if (!blob) { li.querySelector('.v-thumb').textContent = '🏥'; return; }
+          let url = thumbUrls.get(v.photoId);
+          if (!url) { url = URL.createObjectURL(blob); thumbUrls.set(v.photoId, url); }
+          const img = document.createElement('img'); img.src = url; img.alt = '明細の写真';
+          img.addEventListener('click', () => openLightbox(url));
+          li.querySelector('.v-thumb').appendChild(img);
+        });
+      }
+    }
+  }
+
+  function openLightbox(url) { $('#lightboxImg').src = url; $('#lightbox').hidden = false; }
+  function closeLightbox() { $('#lightbox').hidden = true; $('#lightboxImg').removeAttribute('src'); }
+  $('#lightbox').addEventListener('click', closeLightbox);
+  $('#lightboxClose').addEventListener('click', closeLightbox);
+
+  // ---- AI 読み取り(Claude API) ----
+  const RECEIPT_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['date', 'clinic', 'total', 'items', 'pet_name', 'notes'],
+    properties: {
+      date: { type: ['string', 'null'], description: '診療日または発行日。YYYY-MM-DD 形式。読めなければ null' },
+      clinic: { type: ['string', 'null'], description: '病院名。読めなければ null' },
+      total: { type: ['number', 'null'], description: '実際に支払った合計金額(税込、円)。読めなければ null' },
+      items: {
+        type: 'array',
+        description: '診療明細の各行。小計・税・合計の行は含めない',
+        items: {
+          type: 'object', additionalProperties: false, required: ['name', 'amount'],
+          properties: {
+            name: { type: 'string', description: '項目名。括弧内の補足行(薬品名や袋数など)は親項目の名前に含める' },
+            amount: { type: ['number', 'null'], description: 'その行の金額(円)。読めなければ null' }
+          }
+        }
+      },
+      pet_name: { type: ['string', 'null'] },
+      notes: { type: ['string', 'null'], description: '次回予約や注意書きなど、記録に残す価値のある補足。なければ null' }
+    }
+  };
+  const OCR_PROMPT = 'この写真は日本の動物病院の診療明細書(領収書)です。日付、病院名、支払った合計金額(税込)、診療明細の各項目(項目名と金額)を読み取ってください。小計・消費税・合計の行は items に含めないでください。括弧書きの補足行(例: 薬品名や袋数)は、その直前の項目名に含めて 1 行にまとめてください。読めない箇所は null にしてください。';
+
+  async function extractReceipt(blob) {
+    const key = getApiKey();
+    if (!key) throw new Error('NO_KEY');
+    const dataUrl = await blobToDataUrl(blob);
+    const b64 = dataUrl.split(',')[1];
+    const body = {
+      model: 'claude-opus-5-5',
+      max_tokens: 4000,
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: RECEIPT_SCHEMA } },
+      messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+        { type: 'text', text: OCR_PROMPT }
+      ] }]
+    };
+    const call = async (payload) => fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2026-10-21',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify(payload)
+    });
+    let res = await call(body);
+    if (res.status === 400) {
+      // 構造化出力が使えない場合は通常出力で再試行し、本文から JSON を取り出す
+      const errText = await res.text();
+      if (/output_config|format/i.test(errText)) {
+        const { output_config, ...rest } = body;
+        rest.messages[0].content[1].text += ' 次の JSON だけを出力してください: ' + JSON.stringify(RECEIPT_SCHEMA.properties);
+        res = await call(rest);
+      } else {
+        throw new Error('API_400: ' + errText.slice(0, 200));
+      }
+    }
+    if (res.status === 401) throw new Error('AUTH');
+    if (res.status === 429) throw new Error('RATE');
+    if (!res.ok) throw new Error(`HTTP_${res.status}`);
+    const msg = await res.json();
+    if (msg.stop_reason === 'refusal') throw new Error('REFUSED');
+    const text = (msg.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('');
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('PARSE');
+    return JSON.parse(m[0]);
+  }
+
+  $('#ocrBtn').addEventListener('click', async () => {
+    const blob = pendingPhoto ? pendingPhoto.blob : (editingVisitId ? await photoGet((state.visits.find((v) => v.id === editingVisitId) || {}).photoId) : null);
+    if (!blob) return;
+    if (!getApiKey()) { alert('設定で API キーを登録すると、写真から自動で読み取れます。'); return; }
+    const btn = $('#ocrBtn'), hint = $('#ocrHint');
+    btn.disabled = true; btn.textContent = '読み取り中…(10〜30秒)'; hint.textContent = '';
+    try {
+      const r = await extractReceipt(blob);
+      if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) VF.date.value = r.date;
+      if (r.clinic) VF.clinic.value = r.clinic;
+      if (r.total != null) VF.total.value = Math.round(r.total);
+      if (Array.isArray(r.items) && r.items.length) setItems(r.items.map((i) => ({ name: i.name || '', amount: i.amount })));
+      if (r.notes && !VF.note.value) VF.note.value = r.notes;
+      hint.textContent = '読み取りました。内容を確認して、違っていれば直してから保存してください。';
+    } catch (e) {
+      const code = String(e.message || e);
+      hint.textContent =
+        code === 'AUTH' ? 'API キーが正しくないようです。設定を確認してください。' :
+        code === 'RATE' ? '混み合っています。少し待ってからもう一度お試しください。' :
+        code === 'REFUSED' ? '読み取りが拒否されました。別の写真でお試しください。' :
+        code === 'PARSE' ? '読み取り結果を解釈できませんでした。もう一度お試しください。' :
+        code.startsWith('API_400') ? '読み取りに失敗しました: ' + code.slice(9) :
+        '読み取りに失敗しました。通信状態を確認してもう一度お試しください。';
+      console.warn('ocr failed', e);
+    } finally {
+      btn.disabled = false; btn.textContent = '✨ 写真から日付・金額・内容を読み取る';
+    }
   });
 
   // ---------- init ----------
